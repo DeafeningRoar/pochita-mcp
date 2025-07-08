@@ -1,35 +1,35 @@
-import dotenv from "dotenv";
+import type { Request, Response, NextFunction } from 'express';
+import dotenv from 'dotenv';
 
-if (process.env.NODE_ENV !== "production") {
+if (process.env.NODE_ENV !== 'production') {
   dotenv.config();
 }
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import express from "express";
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import express from 'express';
 
 // import setupLOACodexTools from "./tools/loa-codex";
-import setupLOANewsTools from "./tools/loa-news";
+import setupLOANewsTools from './tools/loa-news';
 
 const PORT = process.env.PORT || 3000;
 
 const app = express();
 app.use(express.json());
 
-
 const setupServer = () => {
   const server = new McpServer(
     {
-      name: "MCP Server Boilerplate",
-      version: "1.0.0",
+      name: 'MCP Server Boilerplate',
+      version: '1.0.0',
     },
     {
       capabilities: {
         logging: {
-          level: "debug",
-        }
-      }
-    }
+          level: 'debug',
+        },
+      },
+    },
   );
 
   // setupLOACodexTools(server);
@@ -37,6 +37,22 @@ const setupServer = () => {
 
   return server;
 };
+
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const { uid } = req.query as { uid: string };
+
+  if (!uid) {
+    res.status(401).json();
+  } else {
+    const actualUid = process.env.API_KEY;
+
+    if (uid !== actualUid) {
+      res.status(401).json();
+    } else {
+      next();
+    }
+  }
+});
 
 app.post('/mcp', async (req, res) => {
   try {
@@ -69,5 +85,5 @@ app.post('/mcp', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log("Server is running on port", PORT);
+  console.log('Server is running on port', PORT);
 });
