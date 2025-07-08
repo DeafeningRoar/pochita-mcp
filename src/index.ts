@@ -8,7 +8,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import express from "express";
 
-import setupLOACodexTools from "./tools/loacodex";
+// import setupLOACodexTools from "./tools/loa-codex";
+import setupLOANewsTools from "./tools/loa-news";
 
 const PORT = process.env.PORT || 3000;
 
@@ -31,7 +32,8 @@ const setupServer = () => {
     }
   );
 
-  setupLOACodexTools(server);
+  // setupLOACodexTools(server);
+  setupLOANewsTools(server);
 
   return server;
 };

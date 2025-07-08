@@ -6,7 +6,8 @@ import * as cheerio from "cheerio";
 
 const skillSchema = z.object({
 	className: z.string().describe("The class name that has the skill"),
-	skillName: z.string().describe("The name of the skill")
+	skillName: z.string().describe("The name of the skill"),
+	language: z.enum(['en', 'sp']).describe("The language of the skill description")
 });
 
 const setupTools = (server: McpServer) => {
@@ -17,7 +18,7 @@ const setupTools = (server: McpServer) => {
 			description: 'Fetch the description of a Lost Ark skill of a given class',
 			inputSchema: skillSchema.shape,
 		},
-		async ({ className, skillName }) => {
+		async ({ className, skillName, language }) => {
 			const { data } = await axios.get(`https://lostarkcodex.com/query.php?a=skills&l=us`);
 
 			const skill = data.aaData.find((skill: any) => {
@@ -37,7 +38,7 @@ const setupTools = (server: McpServer) => {
 
 			name = cheerio.load(name).text();
 
-			const { data: skillDetails } = await axios.get(`https://lostarkcodex.com/tip.php?id=skill--${id}&enchant=0&l=us&nf=on`);
+			const { data: skillDetails } = await axios.get(`https://lostarkcodex.com/tip.php?id=skill--${id}&enchant=0&l=${language}&nf=on`);
 			
 			const $ = cheerio.load(skillDetails);
 			const details = $.text();
