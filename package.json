@@ -1,0 +1,29 @@
+{
+  "name": "pochita-mcp",
+  "version": "1.0.0",
+  "description": "MCP Servers for Pochita GPT",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon -w src --exec \"npm run build && npm start\" -e ts"
+  },
+  "author": "Felipe Saa Echavarría",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.15.0",
+    "axios": "^1.9.0",
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "zod": "^3.25.55"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.30",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.8.3"
+  }
+}
