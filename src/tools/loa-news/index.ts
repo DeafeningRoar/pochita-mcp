@@ -5,6 +5,8 @@ import { z } from 'zod';
 import * as cheerio from 'cheerio';
 import TurndownService from 'turndown';
 
+import cache from '../../services/cache';
+
 const baseURL = 'https://www.playlostark.com';
 const krBaseURL = 'https://lostark.game.onstove.com';
 
@@ -52,6 +54,8 @@ const setupTools = (server: McpServer) => {
     },
     async ({ language }) => {
       try {
+        console.log('get-global-news-list', { language });
+
         const { data } = await lostarknewsAPI.get(`/${language}/news`);
 
         const $ = cheerio.load(data);
@@ -107,9 +111,19 @@ const setupTools = (server: McpServer) => {
     },
     async ({ url }) => {
       try {
+        console.log('get-news-details', { url });
+
         if (!url.startsWith(baseURL)) {
           return {
             content: [{ type: 'text', text: 'Invalid URL' }],
+          };
+        }
+
+        const cachedData = cache.getCache<string>(`get-news-details-${url}`);
+
+        if (cachedData) {
+          return {
+            content: [{ type: 'text', text: cachedData }],
           };
         }
 
@@ -171,6 +185,8 @@ const setupTools = (server: McpServer) => {
             getSectionContent(element);
           });
 
+        cache.setCache(`get-news-details-${url}`, articleContents, 60 * 30); // 30 minutes
+
         return {
           content: [{ type: 'text', text: articleContents }],
         };
@@ -196,6 +212,8 @@ const setupTools = (server: McpServer) => {
     },
     async ({ language }) => {
       try {
+        console.log('get-server-status', { language });
+
         const { data } = await lostarknewsAPI.get(`/${language}/support/server-status`);
 
         const serverStatusIdentifier = 'section > div.ags-ServerStatus-content';
@@ -279,6 +297,8 @@ const setupTools = (server: McpServer) => {
     },
     async () => {
       try {
+        console.log('get-kr-news-list');
+
         const { data } = await krLostArkAPI.get('/News/Notice/List');
 
         const $ = cheerio.load(data);
@@ -327,9 +347,19 @@ const setupTools = (server: McpServer) => {
     },
     async ({ url }) => {
       try {
+        console.log('get-kr-news-details', { url });
+
         if (!url.startsWith(krBaseURL)) {
           return {
             content: [{ type: 'text', text: 'Invalid URL' }],
+          };
+        }
+
+        const cachedData = cache.getCache<string>(`get-kr-news-details-${url}`);
+
+        if (cachedData) {
+          return {
+            content: [{ type: 'text', text: cachedData }],
           };
         }
 
@@ -342,6 +372,8 @@ const setupTools = (server: McpServer) => {
         const turndownService = new TurndownService();
 
         const parsed = turndownService.turndown(mainArticleContainer.html()!);
+
+        cache.setCache(`get-kr-news-details-${url}`, parsed, 60 * 30); // 30 minutes
 
         return {
           content: [{ type: 'text', text: parsed }],

@@ -66,6 +66,8 @@ app.post('/mcp', async (req, res) => {
       server.close();
     });
 
+    console.log('Processing MCP Request', req.body);
+
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
   } catch (error) {
