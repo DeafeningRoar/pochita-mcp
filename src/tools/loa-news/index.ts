@@ -122,6 +122,8 @@ const setupTools = (server: McpServer) => {
         const cachedData = cache.getCache<string>(`get-news-details-${url}`);
 
         if (cachedData) {
+          console.log('get-news-details cache hit', { url });
+
           return {
             content: [{ type: 'text', text: cachedData }],
           };
@@ -358,6 +360,8 @@ const setupTools = (server: McpServer) => {
         const cachedData = cache.getCache<string>(`get-kr-news-details-${url}`);
 
         if (cachedData) {
+          console.log('get-kr-news-details cache hit', { url });
+
           return {
             content: [{ type: 'text', text: cachedData }],
           };
