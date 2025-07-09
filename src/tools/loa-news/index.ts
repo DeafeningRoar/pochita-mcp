@@ -5,6 +5,7 @@ import { z } from 'zod';
 import * as cheerio from 'cheerio';
 
 const baseURL = 'https://www.playlostark.com';
+const krBaseURL = 'https://lostark.game.onstove.com';
 
 const lostarknewsAPI = axios.create({
   baseURL,
@@ -14,7 +15,15 @@ const lostarknewsAPI = axios.create({
   },
 });
 
-const formatToMarkdown = (articles: Array<{ title: string; date: string; summary: string; url: string }>) => {
+const krLostArkAPI = axios.create({
+  baseURL: krBaseURL,
+  headers: {
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+  },
+});
+
+const formatToMarkdown = (articles: Array<{ title: string; date: string; summary?: string; url: string }>) => {
   const markdown = articles
     .map((article, i) => {
       const date = article.date || 'Unknown Date';
@@ -31,10 +40,10 @@ const formatToMarkdown = (articles: Array<{ title: string; date: string; summary
 
 const setupTools = (server: McpServer) => {
   server.registerTool(
-    'get-latest-news-list',
+    'get-latest-global-news-list',
     {
-      title: 'Fetch the latest news',
-      description: 'Fetch the last 9 news from Lost Ark news page',
+      title: 'Fetch the latest global news',
+      description: 'Fetch the last 9 news from Global Lost Ark news page',
       inputSchema: z.object({
         language: z.enum(['en-us', 'es-es']).describe('The language of the news'),
       }).shape,
@@ -83,10 +92,10 @@ const setupTools = (server: McpServer) => {
   );
 
   server.registerTool(
-    'get-news-details',
+    'get-global-news-details',
     {
-      title: 'Fetch the details of a Lost Ark news',
-      description: 'Fetch the details of a Lost Ark news article with a given article url',
+      title: 'Fetch the details of a Global Lost Ark news',
+      description: 'Fetch the details of a Global Lost Ark news article with a given article url',
       inputSchema: z.object({
         url: z.string().describe('The url of the news'),
       }).shape,
@@ -171,10 +180,10 @@ const setupTools = (server: McpServer) => {
   );
 
   server.registerTool(
-    'get-servers-status',
+    'get-global-servers-status',
     {
-      title: 'Fetch all servers status',
-      description: 'Gets the status of all servers of every region',
+      title: 'Fetch all global servers status',
+      description: 'Gets the status of all global servers of every region',
       inputSchema: z.object({
         language: z.enum(['en-us', 'es-es']).describe('The language of the response data'),
       }).shape,
@@ -251,6 +260,43 @@ const setupTools = (server: McpServer) => {
 
         return {
           content: [{ type: 'text', text: 'There was an error fetching servers status' }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'get-korean-news-list',
+    {
+      title: 'Fetch the latest Korean Lost Ark news',
+      description: 'Fetch the latest Korean Lost Ark news list',
+    },
+    async () => {
+      try {
+        const { data } = await krLostArkAPI.get('/News/Notice/List');
+
+        const $ = cheerio.load(data);
+
+        const newsList = $($('main > div.content > div.board > div.list').children()[1]);
+
+        const news: Array<{ title: string; date: string; url: string }> = [];
+
+        newsList.children().each((_, el) => {
+          const title = $(el).find('span.list__title').text().trim();
+          const date = $(el).find('div.list__date').text().trim();
+          const url = $(el).find('li > a').attr('href');
+
+          news.push({ title, date, url: `${krBaseURL}${url}` });
+        });
+
+        return {
+          content: [{ type: 'text', text: `**Latest Korean Lost Ark News:**\n\n${formatToMarkdown(news)}` }],
+        };
+      } catch (error) {
+        console.error(`Error fetching Korean LOA news`, error);
+
+        return {
+          content: [{ type: 'text', text: 'There was an error fetching Korean LOA news' }],
         };
       }
     },
