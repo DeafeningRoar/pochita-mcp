@@ -290,7 +290,7 @@ const setupTools = (server: McpServer) => {
         });
 
         return {
-          content: [{ type: 'text', text: `**Latest Korean Lost Ark News:**\n\n${formatToMarkdown(news)}` }],
+          content: [{ type: 'text', text: `[Translate titles to corresponding language]\n\n**Latest Korean Lost Ark News:**\n\n${formatToMarkdown(news)}` }],
         };
       } catch (error) {
         console.error(`Error fetching Korean LOA news`, error);
