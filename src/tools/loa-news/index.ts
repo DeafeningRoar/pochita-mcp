@@ -3,6 +3,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import axios from 'axios';
 import { z } from 'zod';
 import * as cheerio from 'cheerio';
+import TurndownService from 'turndown';
 
 const baseURL = 'https://www.playlostark.com';
 const krBaseURL = 'https://lostark.game.onstove.com';
@@ -40,12 +41,13 @@ const formatToMarkdown = (articles: Array<{ title: string; date: string; summary
 
 const setupTools = (server: McpServer) => {
   server.registerTool(
-    'get-latest-global-news-list',
+    'get-global-news-list',
     {
-      title: 'Fetch the latest global news',
-      description: 'Fetch the last 9 news from Global Lost Ark news page',
+      title: 'Get Lost Ark Global News List',
+      description:
+        'Fetch the latest 9 news articles from the Lost Ark Global official website with titles, dates, summaries, and URLs',
       inputSchema: z.object({
-        language: z.enum(['en-us', 'es-es']).describe('The language of the news'),
+        language: z.enum(['en-us', 'es-es']).describe('The language of the news (en-us or es-es)'),
       }).shape,
     },
     async ({ language }) => {
@@ -92,12 +94,15 @@ const setupTools = (server: McpServer) => {
   );
 
   server.registerTool(
-    'get-global-news-details',
+    'get-news-details',
     {
-      title: 'Fetch the details of a Global Lost Ark news',
-      description: 'Fetch the details of a Global Lost Ark news article with a given article url',
+      title: 'Get Lost Ark Global News Article Details',
+      description:
+        'Fetch and format the full content of a Lost Ark Global news article from playlostark.com, preserving its structure (headings, paragraphs, and lists).',
       inputSchema: z.object({
-        url: z.string().describe('The url of the news'),
+        url: z
+          .string()
+          .describe('The full URL of the Lost Ark Global news article (must start with https://www.playlostark.com)'),
       }).shape,
     },
     async ({ url }) => {
@@ -180,12 +185,13 @@ const setupTools = (server: McpServer) => {
   );
 
   server.registerTool(
-    'get-global-servers-status',
+    'get-server-status',
     {
-      title: 'Fetch all global servers status',
-      description: 'Gets the status of all global servers of every region',
+      title: 'Get Lost Ark Global Servers Status',
+      description:
+        'Fetch real-time status of all Lost Ark Global servers across all regions (Online, Busy, Full, Maintenance)',
       inputSchema: z.object({
-        language: z.enum(['en-us', 'es-es']).describe('The language of the response data'),
+        language: z.enum(['en-us', 'es-es']).describe('The language for status labels (en-us or es-es)'),
       }).shape,
     },
     async ({ language }) => {
@@ -266,10 +272,10 @@ const setupTools = (server: McpServer) => {
   );
 
   server.registerTool(
-    'get-korean-news-list',
+    'get-kr-news-list',
     {
-      title: 'Fetch the latest Korean Lost Ark news',
-      description: 'Fetch the latest Korean Lost Ark news list',
+      title: 'Get Lost Ark Korea News List',
+      description: 'Fetch the latest Lost Ark Korea news articles. Note: Titles are in Korean and may need translation',
     },
     async () => {
       try {
@@ -290,13 +296,61 @@ const setupTools = (server: McpServer) => {
         });
 
         return {
-          content: [{ type: 'text', text: `[Translate titles to corresponding language]\n\n**Latest Korean Lost Ark News:**\n\n${formatToMarkdown(news)}` }],
+          content: [
+            {
+              type: 'text',
+              text: `[Translate titles to corresponding language]\n\n**Latest Korean Lost Ark News:**\n\n${formatToMarkdown(
+                news,
+              )}`,
+            },
+          ],
         };
       } catch (error) {
         console.error(`Error fetching Korean LOA news`, error);
 
         return {
           content: [{ type: 'text', text: 'There was an error fetching Korean LOA news' }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'get-kr-news-details',
+    {
+      title: 'Get Lost Ark Korea News Details',
+      description:
+        'Fetch and format the full content of a Lost Ark Korea news article from its URL. Content is in Korean and may require translation.',
+      inputSchema: z.object({
+        url: z.string().describe('The URL of the Korean news article (must be from lostark.game.onstove.com)'),
+      }).shape,
+    },
+    async ({ url }) => {
+      try {
+        if (!url.startsWith(krBaseURL)) {
+          return {
+            content: [{ type: 'text', text: 'Invalid URL' }],
+          };
+        }
+
+        const { data } = await krLostArkAPI.get(url);
+
+        const $ = cheerio.load(data);
+
+        const mainArticleContainer = $('section.article__data > div');
+
+        const turndownService = new TurndownService();
+
+        const parsed = turndownService.turndown(mainArticleContainer.html()!);
+
+        return {
+          content: [{ type: 'text', text: parsed }],
+        };
+      } catch (error) {
+        console.error(`Error fetching Korean LOA news details`, error);
+
+        return {
+          content: [{ type: 'text', text: 'There was an error fetching Korean LOA news details' }],
         };
       }
     },
