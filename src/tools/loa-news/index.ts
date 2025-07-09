@@ -125,18 +125,18 @@ const setupTools = (server: McpServer) => {
             const element = $(el);
 
             const getSectionContent = (elem: typeof element, listLevel: number = 1) => {
-              let auxListLevel = listLevel
+              let auxListLevel = listLevel;
               const isTitle = articleClasses.title.some((className) => elem.hasClass(className));
               const isParagraph = articleClasses.paragraph.some((className) => elem.hasClass(className));
               const isList = articleClasses.list.some((className) => elem.hasClass(className));
               const isListItem = articleClasses.listItem.some((className) => elem.hasClass(className));
-                
+
               const content = elem.text().trim();
-  
+
               if (isTitle) {
                 articleContents += `**${content}**\n\n`;
               }
-  
+
               if (isParagraph) {
                 articleContents += `${content}\n\n`;
               }
@@ -152,7 +152,7 @@ const setupTools = (server: McpServer) => {
                   getSectionContent(childElement, auxListLevel);
                 });
               }
-            }
+            };
 
             getSectionContent(element);
           });
@@ -165,6 +165,92 @@ const setupTools = (server: McpServer) => {
 
         return {
           content: [{ type: 'text', text: 'Error fetching news details' }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'get-servers-status',
+    {
+      title: 'Fetch all servers status',
+      description: 'Gets the status of all servers of every region',
+      inputSchema: z.object({
+        language: z.enum(['en-us', 'es-es']).describe('The language of the response data'),
+      }).shape,
+    },
+    async ({ language }) => {
+      try {
+        const { data } = await lostarknewsAPI.get(`/${language}/support/server-status`);
+
+        const serverStatusIdentifier = 'section > div.ags-ServerStatus-content';
+
+        const $ = cheerio.load(data);
+
+        const statuses = ['good', 'busy', 'full', 'maintenance'];
+        const statusTranslations = {
+          'en-us': {
+            good: 'Online',
+            busy: 'Busy',
+            full: 'Full',
+            maintenance: 'Maintenance',
+          },
+          'es-es': {
+            good: 'Online',
+            busy: 'Tráfico elevado',
+            full: 'Completo',
+            maintenance: 'Mantenimiento',
+          },
+        };
+
+        let serversStatus = '';
+
+        const regions = $(`${serverStatusIdentifier} > div.ags-ServerStatus-content-tabs`).children();
+        const servers = $(`${serverStatusIdentifier} > div.ags-ServerStatus-content-responses`)
+          .children()
+          .filter((_, el) => {
+            const element = $(el);
+
+            return element.hasClass('ags-ServerStatus-content-responses-response');
+          });
+
+        regions.each((index, region) => {
+          const regionElement = $(region);
+
+          const regionName = regionElement.text().trim();
+
+          serversStatus += `**${regionName}**\n\n`;
+
+          const serversElement = $(servers[index]);
+
+          serversElement.children().each((_, server) => {
+            const serverElement = $(server);
+
+            const serverName = serverElement.text().trim();
+
+            if (!serverName.length) return;
+
+            const serverStatus = statuses.find(
+              (status) =>
+                serverElement.find(`.ags-ServerStatus-content-responses-response-server-status--${status}`).length,
+            );
+
+            serversStatus += `- ${serverName} (${
+              statusTranslations[language][serverStatus as keyof (typeof statusTranslations)[typeof language]]
+            })\n`;
+          });
+
+          serversStatus += '\n';
+        });
+
+        return {
+          content: [{ type: 'text', text: serversStatus }],
+        };
+      } catch (error) {
+        console.error(`Error fetching LOA servers status`, error);
+
+        return {
+          content: [{ type: 'text', text: 'There was an error fetching servers status' }],
         };
       }
     },
