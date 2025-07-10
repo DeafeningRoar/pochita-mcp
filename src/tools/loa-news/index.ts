@@ -106,7 +106,9 @@ const setupTools = (server: McpServer) => {
       inputSchema: z.object({
         url: z
           .string()
-          .describe('The full URL of the Lost Ark Global news article (must start with https://www.playlostark.com)'),
+          .describe(
+            'The full URL of the Lost Ark Global news article. Must start with either https://www.playlostark.com/en-us or https://www.playlostark.com/es-es depending on the language',
+          ),
       }).shape,
     },
     async ({ url }) => {
