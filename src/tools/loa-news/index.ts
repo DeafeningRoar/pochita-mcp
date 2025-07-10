@@ -107,7 +107,7 @@ const setupTools = (server: McpServer) => {
         url: z
           .string()
           .describe(
-            'The full URL of the Lost Ark Global news article. Must start with either https://www.playlostark.com/en-us or https://www.playlostark.com/es-es depending on the language',
+            'The full URL of the Lost Ark Global news article. Must start with either https://www.playlostark.com/en-us for English or https://www.playlostark.com/es-es for Spanish',
           ),
       }).shape,
     },
