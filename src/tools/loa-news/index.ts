@@ -340,8 +340,9 @@ const setupTools = (server: McpServer) => {
             },
           ],
         };
-      } catch (error) {
-        console.error(`Error fetching LOA releases`, error);
+      } catch (error: unknown) {
+        const err = error as Error;
+        console.error(`Error fetching LOA releases`, err?.message, err?.stack);
 
         return {
           content: [{ type: 'text', text: 'Error fetching releases' }],
