@@ -26,15 +26,15 @@ const krLostArkAPI = axios.create({
   },
 });
 
-const formatToMarkdown = (articles: Array<{ title: string; date: string; summary?: string; url: string }>) => {
+const formatToMarkdown = (articles: Array<{ title: string; date?: string; summary?: string; url: string }>) => {
   const markdown = articles
     .map((article, i) => {
-      const date = article.date || 'Unknown Date';
+      const date = article.date;
       const title = article.title || 'Untitled';
       const summary = article.summary || '';
       const url = article.url || '';
 
-      return `${i + 1}. **${title}** (${date})\n${summary.trim()} [Read more](${url})\n`;
+      return `${i + 1}. **${title}** ${date ? `(${date})` : ''}\n${summary.trim()} [Read more](${url})\n`;
     })
     .join('\n');
 
@@ -47,22 +47,23 @@ const setupTools = (server: McpServer) => {
     {
       title: 'Get Lost Ark Global News List',
       description:
-        'Fetch the latest 9 news articles from the Lost Ark Global official website with titles, dates, summaries, and URLs',
+        'Fetch news articles from the Lost Ark Global official website with titles, dates, summaries, and URLs. You can specify the page number to fetch (default: 1)',
       inputSchema: z.object({
         language: z.enum(['en-us', 'es-es']).describe('The language of the news (en-us or es-es)'),
+        page: z.number().describe('The page number to fetch (default: 1)').optional().default(1),
       }).shape,
     },
-    async ({ language }) => {
+    async ({ language, page }) => {
       try {
-        console.log('get-global-news-list', { language });
+        console.log('get-global-news-list', { language, page });
 
-        const { data } = await lostarknewsAPI.get(`/${language}/news`);
+        const { data } = await lostarknewsAPI.get(`/${language}/news-load-more?page=${page}`);
 
         const $ = cheerio.load(data);
 
         const articles: Array<{ title: string; date: string; summary: string; url: string }> = [];
 
-        $('#ags-NewsLandingPage-renderBlogList .ags-SlotModule--blog').each((_, el) => {
+        $('.ags-SlotModule--blog').each((_, el) => {
           const element = $(el);
           const title = element.find('.ags-SlotModule-contentContainer-heading').text().trim();
           const date = element.find('.ags-SlotModule-contentContainer-date').text().trim();
@@ -85,7 +86,12 @@ const setupTools = (server: McpServer) => {
         const formattedArticles = formatToMarkdown(articles);
 
         return {
-          content: [{ type: 'text', text: `**Latest Lost Ark News:**\n\n${formattedArticles}` }],
+          content: [
+            {
+              type: 'text',
+              text: `**Lost Ark Global News - Page ${page} (${language}):**\n\n${formattedArticles}`,
+            },
+          ],
         };
       } catch (error) {
         console.error(`Error fetching LOA news`, error);
@@ -199,6 +205,129 @@ const setupTools = (server: McpServer) => {
 
         return {
           content: [{ type: 'text', text: 'Error fetching news details' }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'get-global-releases-list',
+    {
+      title: 'Get Lost Ark Global Releases List',
+      description:
+        'Fetch Releases articles from the Lost Ark Global official website with titles, dates, summaries, and URLs. You can specify the page number to fetch (default: 1)',
+      inputSchema: z.object({
+        language: z.enum(['en-us', 'es-es']).describe('The language of the news (en-us or es-es)'),
+        page: z.number().describe('The page number to fetch (default: 1)').optional().default(1),
+      }).shape,
+    },
+    async ({ language, page }) => {
+      try {
+        console.log('get-global-releases-list', { language, page });
+
+        const { data } = await lostarknewsAPI.get(`/${language}/game/releases-load-more?page=${page}`);
+
+        const $ = cheerio.load(data);
+
+        const articles: Array<{ title: string; summary: string; url: string }> = [];
+
+        $('.ags-ReleasesListItem').each((_, el) => {
+          const element = $(el);
+          const title = element.find('.ags-ReleasesListItem-content-title--desktop').text().trim();
+          const summary = element
+            .find('.ags-SlotModule-contentContainer-text--desktop')
+            .text()
+            .trim();
+          const relativeUrl = element.find('.ags-ReleasesListItem-content-title--desktop').attr('href');
+          const url = relativeUrl ? `https://www.playlostark.com${relativeUrl}` : '';
+
+          articles.push({ title, summary, url });
+        });
+
+        const formattedArticles = formatToMarkdown(articles);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `**Lost Ark Global Releases - Page ${page} (${language}):**\n\n${formattedArticles}`,
+            },
+          ],
+        };
+      } catch (error) {
+        console.error(`Error fetching LOA releases`, error);
+
+        return {
+          content: [{ type: 'text', text: 'Error fetching releases' }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'get-global-release-details',
+    {
+      title: 'Get Lost Ark Global Release Article Details',
+      description:
+        'Fetch and format the full content of a Lost Ark Global release article from playlostark.com, preserving its structure (headings, paragraphs, and lists).',
+      inputSchema: z.object({
+        url: z
+          .string()
+          .describe(
+            'The full URL of the Lost Ark Global news article. Must start with either https://www.playlostark.com/en-us for English or https://www.playlostark.com/es-es for Spanish',
+          ),
+      }).shape,
+    },
+    async ({ url }) => {
+      try {
+        console.log('get-global-release-details', { url });
+
+        if (!url.startsWith(baseURL)) {
+          return {
+            content: [{ type: 'text', text: 'Invalid URL' }],
+          };
+        }
+
+        const cachedData = cache.getCache<string>(`get-global-release-details-${url}`);
+
+        if (cachedData) {
+          console.log('get-global-release-details cache hit', { url });
+
+          return {
+            content: [{ type: 'text', text: cachedData }],
+          };
+        }
+
+        const { data } = await lostarknewsAPI.get(url);
+
+        const $ = cheerio.load(data);
+
+        const mainArticleContainer = $('.ags-ReleaseDetailsPage-articlePane');
+
+        mainArticleContainer.find('style').remove();
+        mainArticleContainer.find('img').remove();
+        mainArticleContainer.find('.ags-EditPreview-fileSize').remove();
+        mainArticleContainer.find('.u-hidden').remove();
+
+        const turndownService = new TurndownService();
+
+        const parsed = turndownService.turndown(mainArticleContainer.html()!);
+
+        cache.setCache(`get-global-release-details-${url}`, parsed, 60 * 30); // 30 minutes
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: parsed,
+            },
+          ],
+        };
+      } catch (error) {
+        console.error(`Error fetching LOA releases`, error);
+
+        return {
+          content: [{ type: 'text', text: 'Error fetching releases' }],
         };
       }
     },
