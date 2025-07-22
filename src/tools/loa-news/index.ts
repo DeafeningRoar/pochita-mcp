@@ -305,9 +305,14 @@ const setupTools = (server: McpServer) => {
           const { data: aiResponse } = await agentAPI.post('/prompt', {
             prompt: `${prompt}\n\n${cachedData}`,
           });
-
+  
           return {
-            content: [{ type: 'text', text: aiResponse }],
+            content: [
+              {
+                type: 'text',
+                text: aiResponse.response,
+              },
+            ],
           };
         }
 
