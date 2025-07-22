@@ -276,16 +276,17 @@ const setupTools = (server: McpServer) => {
     {
       title: 'Get Lost Ark Global Release Article Details',
       description:
-        'Fetch and format the full content of a Lost Ark Global release article from playlostark.com, preserving its structure (headings, paragraphs, and lists).',
+        'Fetch and process the full content of a Lost Ark Global release article from playlostark.com with an AI Agent.',
       inputSchema: z.object({
         url: z
           .string()
           .describe(
             'The full URL of the Lost Ark Global news article. Must start with either https://www.playlostark.com/en-us for English or https://www.playlostark.com/es-es for Spanish',
           ),
+        prompt: z.string().describe('Prompt given to the agent that will process the full article. The article itself will be included along the given prompt.')
       }).shape,
     },
-    async ({ url }) => {
+    async ({ url, prompt }) => {
       try {
         console.log('get-global-release-details', { url });
 
