@@ -109,16 +109,21 @@ const setupTools = (server: McpServer) => {
     {
       title: 'Get Lost Ark Global News Article Details',
       description:
-        'Fetch and format the full content of a Lost Ark Global news article from playlostark.com, preserving its structure (headings, paragraphs, and lists).',
+        'Fetch and format the full content of a Lost Ark Global news article from playlostark.com with an AI Agent.',
       inputSchema: z.object({
         url: z
           .string()
           .describe(
             'The full URL of the Lost Ark Global news article. Must start with either https://www.playlostark.com/en-us for English or https://www.playlostark.com/es-es for Spanish',
           ),
+        prompt: z
+          .string()
+          .describe(
+            'Prompt given to the agent that will process the full article. The article itself will be included along the given prompt.',
+          ),
       }).shape,
     },
-    async ({ url }) => {
+    async ({ url, prompt }) => {
       try {
         console.log('get-news-details', { url });
 
@@ -133,8 +138,10 @@ const setupTools = (server: McpServer) => {
         if (cachedData) {
           console.log('get-news-details cache hit', { url });
 
+          const response = await OpenAIService.query(`${prompt}\n\n${cachedData}`);
+
           return {
-            content: [{ type: 'text', text: cachedData }],
+            content: [{ type: 'text', text: response.output_text }],
           };
         }
 
@@ -198,8 +205,10 @@ const setupTools = (server: McpServer) => {
 
         cache.setCache(`get-news-details-${url}`, articleContents, 60 * 30); // 30 minutes
 
+        const response = await OpenAIService.query(`${prompt}\n\n${articleContents}`);
+
         return {
-          content: [{ type: 'text', text: articleContents }],
+          content: [{ type: 'text', text: response.output_text }],
         };
       } catch (error) {
         console.error(`Error fetching LOA news details`, error);
@@ -486,12 +495,17 @@ const setupTools = (server: McpServer) => {
     {
       title: 'Get Lost Ark Korea News Details',
       description:
-        'Fetch and format the full content of a Lost Ark Korea news article from its URL. Content is in Korean and may require translation.',
+        'Fetch and format the full content of a Lost Ark Korea news article from its URL. The article will be process by an AI Agent. The Content is in Korean and will require translation.',
       inputSchema: z.object({
         url: z.string().describe('The URL of the Korean news article (must be from lostark.game.onstove.com)'),
+        prompt: z
+          .string()
+          .describe(
+            'Prompt given to the agent that will process the full article. The article itself will be included along the given prompt.',
+          ),
       }).shape,
     },
-    async ({ url }) => {
+    async ({ url, prompt }) => {
       try {
         console.log('get-kr-news-details', { url });
 
@@ -506,8 +520,10 @@ const setupTools = (server: McpServer) => {
         if (cachedData) {
           console.log('get-kr-news-details cache hit', { url });
 
+          const response = await OpenAIService.query(`${prompt}\n\n${cachedData}`);
+
           return {
-            content: [{ type: 'text', text: cachedData }],
+            content: [{ type: 'text', text: response.output_text }],
           };
         }
 
@@ -523,8 +539,10 @@ const setupTools = (server: McpServer) => {
 
         cache.setCache(`get-kr-news-details-${url}`, parsed, 60 * 30); // 30 minutes
 
+        const response = await OpenAIService.query(`${prompt}\n\n${parsed}`);
+
         return {
-          content: [{ type: 'text', text: parsed }],
+          content: [{ type: 'text', text: response.output_text }],
         };
       } catch (error) {
         console.error(`Error fetching Korean LOA news details`, error);
