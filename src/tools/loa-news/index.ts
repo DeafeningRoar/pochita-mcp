@@ -6,6 +6,7 @@ import * as cheerio from 'cheerio';
 import TurndownService from 'turndown';
 
 import cache from '../../services/cache';
+import OpenAIService from '../../services/openai';
 
 const baseURL = 'https://www.playlostark.com';
 const krBaseURL = 'https://lostark.game.onstove.com';
@@ -23,13 +24,6 @@ const krLostArkAPI = axios.create({
   headers: {
     'User-Agent':
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-  },
-});
-
-const agentAPI = axios.create({
-  baseURL: process.env.AGENT_API_URL,
-  headers: {
-    'x-api-key': process.env.AGENT_API_KEY,
   },
 });
 
@@ -302,15 +296,13 @@ const setupTools = (server: McpServer) => {
         if (cachedData) {
           console.log('get-global-release-details cache hit', { url });
 
-          const { data: aiResponse } = await agentAPI.post('/prompt', {
-            prompt: `${prompt}\n\n${cachedData}`,
-          });
-  
+          const response = await OpenAIService.query(`${prompt}\n\n${cachedData}`);
+
           return {
             content: [
               {
                 type: 'text',
-                text: aiResponse.response,
+                text: response.output_text,
               },
             ],
           };
@@ -333,15 +325,13 @@ const setupTools = (server: McpServer) => {
 
         cache.setCache(`get-global-release-details-${url}`, parsed, 60 * 30); // 30 minutes
 
-        const { data: aiResponse } = await agentAPI.post('/prompt', {
-          prompt: `${prompt}\n\n${parsed}`,
-        });
+        const response = await OpenAIService.query(`${prompt}\n\n${parsed}`);
 
         return {
           content: [
             {
               type: 'text',
-              text: aiResponse.response,
+              text: response.output_text,
             },
           ],
         };
