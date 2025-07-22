@@ -26,6 +26,13 @@ const krLostArkAPI = axios.create({
   },
 });
 
+const agentAPI = axios.create({
+  baseURL: process.env.AGENT_API_URL,
+  headers: {
+    'x-api-key': process.env.AGENT_API_KEY,
+  }
+});
+
 const formatToMarkdown = (articles: Array<{ title: string; date?: string; summary?: string; url: string }>) => {
   const markdown = articles
     .map((article, i) => {
@@ -293,8 +300,14 @@ const setupTools = (server: McpServer) => {
         if (cachedData) {
           console.log('get-global-release-details cache hit', { url });
 
+          const { data: aiResponse } = await agentAPI.post('/prompt', {
+            data: {
+              prompt: `${prompt}\n\n${cachedData}`
+            }
+          });
+
           return {
-            content: [{ type: 'text', text: cachedData }],
+            content: [{ type: 'text', text: aiResponse }],
           };
         }
 
@@ -315,11 +328,17 @@ const setupTools = (server: McpServer) => {
 
         cache.setCache(`get-global-release-details-${url}`, parsed, 60 * 30); // 30 minutes
 
+        const { data: aiResponse } = await agentAPI.post('/prompt', {
+          data: {
+            prompt: `${prompt}\n\n${parsed}`
+          }
+        });
+
         return {
           content: [
             {
               type: 'text',
-              text: parsed,
+              text: aiResponse.response,
             },
           ],
         };
