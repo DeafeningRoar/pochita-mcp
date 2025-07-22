@@ -30,7 +30,7 @@ const agentAPI = axios.create({
   baseURL: process.env.AGENT_API_URL,
   headers: {
     'x-api-key': process.env.AGENT_API_KEY,
-  }
+  },
 });
 
 const formatToMarkdown = (articles: Array<{ title: string; date?: string; summary?: string; url: string }>) => {
@@ -241,10 +241,7 @@ const setupTools = (server: McpServer) => {
         $('.ags-ReleasesListItem').each((_, el) => {
           const element = $(el);
           const title = element.find('.ags-ReleasesListItem-content-title--desktop').text().trim();
-          const summary = element
-            .find('.ags-SlotModule-contentContainer-text--desktop')
-            .text()
-            .trim();
+          const summary = element.find('.ags-SlotModule-contentContainer-text--desktop').text().trim();
           const relativeUrl = element.find('.ags-ReleasesListItem-content-title--desktop').attr('href');
           const url = relativeUrl ? `https://www.playlostark.com${relativeUrl}` : '';
 
@@ -283,7 +280,11 @@ const setupTools = (server: McpServer) => {
           .describe(
             'The full URL of the Lost Ark Global news article. Must start with either https://www.playlostark.com/en-us for English or https://www.playlostark.com/es-es for Spanish',
           ),
-        prompt: z.string().describe('Prompt given to the agent that will process the full article. The article itself will be included along the given prompt.')
+        prompt: z
+          .string()
+          .describe(
+            'Prompt given to the agent that will process the full article. The article itself will be included along the given prompt.',
+          ),
       }).shape,
     },
     async ({ url, prompt }) => {
@@ -302,9 +303,7 @@ const setupTools = (server: McpServer) => {
           console.log('get-global-release-details cache hit', { url });
 
           const { data: aiResponse } = await agentAPI.post('/prompt', {
-            data: {
-              prompt: `${prompt}\n\n${cachedData}`
-            }
+            prompt: `${prompt}\n\n${cachedData}`,
           });
 
           return {
@@ -330,9 +329,7 @@ const setupTools = (server: McpServer) => {
         cache.setCache(`get-global-release-details-${url}`, parsed, 60 * 30); // 30 minutes
 
         const { data: aiResponse } = await agentAPI.post('/prompt', {
-          data: {
-            prompt: `${prompt}\n\n${parsed}`
-          }
+          prompt: `${prompt}\n\n${parsed}`,
         });
 
         return {
