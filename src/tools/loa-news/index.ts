@@ -116,6 +116,7 @@ const setupTools = (server: McpServer) => {
           .describe(
             'The full URL of the Lost Ark Global news article. Must start with either https://www.playlostark.com/en-us for English or https://www.playlostark.com/es-es for Spanish',
           ),
+        language: z.enum(['en-us', 'es-es']).describe('The language of the article. en-us for English or es-es for Spanish'),
         prompt: z
           .string()
           .describe(
@@ -123,15 +124,17 @@ const setupTools = (server: McpServer) => {
           ),
       }).shape,
     },
-    async ({ url, prompt }) => {
+    async ({ url, prompt, language }) => {
       try {
-        console.log('get-news-details', { url });
+        console.log('get-news-details', { url, language });
 
         if (!url.startsWith(baseURL)) {
           return {
             content: [{ type: 'text', text: 'Invalid URL' }],
           };
         }
+
+        url = url.replace(/(en-us)|(es-es)/ig, language);
 
         const cachedData = cache.getCache<string>(`get-news-details-${url}`);
 
@@ -288,17 +291,20 @@ const setupTools = (server: McpServer) => {
           .describe(
             'Prompt given to the agent that will process the full article. The article itself will be included along the given prompt.',
           ),
+        language: z.enum(['en-us', 'es-es']).describe('The language of the article. en-us for English or es-es for Spanish'),
       }).shape,
     },
-    async ({ url, prompt }) => {
+    async ({ url, prompt, language }) => {
       try {
-        console.log('get-global-release-details', { url });
+        console.log('get-global-release-details', { url, language });
 
         if (!url.startsWith(baseURL)) {
           return {
             content: [{ type: 'text', text: 'Invalid URL' }],
           };
         }
+
+        url = url.replace(/(en-us)|(es-es)/ig, language);
 
         const cachedData = cache.getCache<string>(`get-global-release-details-${url}`);
 
