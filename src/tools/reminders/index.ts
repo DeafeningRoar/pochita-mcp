@@ -15,7 +15,8 @@ const setupTools = (server: McpServer) => {
     'set-discord-reminder',
     {
       title: 'Set Discord Reminder',
-      description: 'Sets a reminder to be sent through Discord to a specific user.',
+      description:
+        'Sets a reminder to be sent through Discord to a specific user. Requires a relative time (e.g., "in 30 minutes", "in 2 hours"). If the user provides an absolute time (like "at 3 PM" or "tomorrow at noon") ask them to rephrase using a relative format. Do not assume the user’s time zone.',
       inputSchema: z.object({
         userId: z.string().describe('Discord user Id where the reminder will be sent to.'),
         userName: z.string().describe('Discord user name'),
