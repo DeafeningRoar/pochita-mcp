@@ -23,6 +23,7 @@ export interface Reminder {
   id: string;
   target_id: string;
   name: string;
+  context_prompt: string;
   description: string;
   due_date: string;
 }

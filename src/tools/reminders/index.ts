@@ -23,6 +23,11 @@ const setupTools = (server: McpServer) => {
         description: z
           .string()
           .describe('Description of what the user wants to be reminded of, include any context as needed.'),
+        prompt: z
+          .string()
+          .describe(
+            'Context prompt that will be given to an AI Agent when the reminder is triggered to give it more context when reminding the user.',
+          ),
         timeValue: z
           .number()
           .describe(
@@ -33,12 +38,13 @@ const setupTools = (server: McpServer) => {
           .describe('The time unit of the relative time when the reminder will be triggered.'),
       }).shape,
     },
-    async ({ userId, userName, description, timeValue, timeUnit }) => {
+    async ({ userId, userName, description, prompt, timeValue, timeUnit }) => {
       try {
         console.log('Attempting to store reminder', {
           userId,
           userName,
           description,
+          prompt,
           timeValue,
           timeUnit,
         });
@@ -60,6 +66,7 @@ const setupTools = (server: McpServer) => {
           name: userName,
           target_id: userId,
           due_date: dueDate.toUTCString(),
+          context_prompt: prompt,
           description,
         };
 
@@ -73,7 +80,7 @@ const setupTools = (server: McpServer) => {
           content: [{ type: 'text', text: 'Reminder correctly set up.' }],
         };
       } catch (error) {
-        console.error(`Error setting up reminder`, { userId, description, timeValue, timeUnit }, error);
+        console.error(`Error setting up reminder`, { userId, description, prompt, timeValue, timeUnit }, error);
 
         return {
           content: [{ type: 'text', text: 'Error setting up reminder' }],
@@ -105,6 +112,7 @@ const pollReminders = async () => {
       userId: reminder.target_id,
       userName: reminder.name,
       description: reminder.description,
+      prompt: reminder.context_prompt,
     })),
     {
       headers: {
