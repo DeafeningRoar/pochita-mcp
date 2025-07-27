@@ -4,7 +4,6 @@ import type { ResponsesModel } from 'openai/resources/shared';
 
 import OpenAI from 'openai';
 
-
 const { OPENAI_TEXT_MODEL, OPENAI_INTERNAL_SYSTEM_PROMPT } = process.env;
 
 export interface TextQueryConfig {

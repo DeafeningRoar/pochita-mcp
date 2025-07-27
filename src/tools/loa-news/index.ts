@@ -27,7 +27,7 @@ const krLostArkAPI = axios.create({
   },
 });
 
-const formatToMarkdown = (articles: Array<{ title: string; date?: string; summary?: string; url: string }>) => {
+const formatToMarkdown = (articles: { title: string; date?: string; summary?: string; url: string }[]) => {
   const markdown = articles
     .map((article, i) => {
       const date = article.date;
@@ -62,7 +62,7 @@ const setupTools = (server: McpServer) => {
 
         const $ = cheerio.load(data);
 
-        const articles: Array<{ title: string; date: string; summary: string; url: string }> = [];
+        const articles: { title: string; date: string; summary: string; url: string }[] = [];
 
         $('.ags-SlotModule--blog').each((_, el) => {
           const element = $(el);
@@ -173,12 +173,12 @@ const setupTools = (server: McpServer) => {
           .each((_, el) => {
             const element = $(el);
 
-            const getSectionContent = (elem: typeof element, listLevel: number = 1) => {
+            const getSectionContent = (elem: typeof element, listLevel = 1) => {
               let auxListLevel = listLevel;
-              const isTitle = articleClasses.title.some((className) => elem.hasClass(className));
-              const isParagraph = articleClasses.paragraph.some((className) => elem.hasClass(className));
-              const isList = articleClasses.list.some((className) => elem.hasClass(className));
-              const isListItem = articleClasses.listItem.some((className) => elem.hasClass(className));
+              const isTitle = articleClasses.title.some(className => elem.hasClass(className));
+              const isParagraph = articleClasses.paragraph.some(className => elem.hasClass(className));
+              const isList = articleClasses.list.some(className => elem.hasClass(className));
+              const isListItem = articleClasses.listItem.some(className => elem.hasClass(className));
 
               const content = elem.text().trim();
 
@@ -242,7 +242,7 @@ const setupTools = (server: McpServer) => {
 
         const $ = cheerio.load(data);
 
-        const articles: Array<{ title: string; summary: string; url: string }> = [];
+        const articles: { title: string; summary: string; url: string }[] = [];
 
         $('.ags-ReleasesListItem').each((_, el) => {
           const element = $(el);
@@ -425,7 +425,7 @@ const setupTools = (server: McpServer) => {
             if (!serverName.length) return;
 
             const serverStatus = statuses.find(
-              (status) =>
+              status =>
                 serverElement.find(`.ags-ServerStatus-content-responses-response-server-status--${status}`).length,
             );
 
@@ -466,7 +466,7 @@ const setupTools = (server: McpServer) => {
 
         const newsList = $($('main > div.content > div.board > div.list').children()[1]);
 
-        const news: Array<{ title: string; date: string; url: string }> = [];
+        const news: { title: string; date: string; url: string }[] = [];
 
         newsList.children().each((_, el) => {
           const title = $(el).find('span.list__title').text().trim();

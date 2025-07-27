@@ -186,7 +186,7 @@ const pollReminders = async () => {
 
   await agentAPI.post(
     '/reminders',
-    reminders.map((reminder) => ({
+    reminders.map(reminder => ({
       targetId: reminder.target_id,
       userName: reminder.name,
       description: reminder.description,
@@ -219,7 +219,7 @@ setTimeout(() => {
   pollReminders();
 
   setInterval(() => {
-    pollReminders().catch((e) => console.log('Error polling reminders', e));
+    pollReminders().catch(e => console.log('Error polling reminders', e));
   }, Number(process.env.REMINDERS_POLLING_INTERVAL));
 }, delay);
 

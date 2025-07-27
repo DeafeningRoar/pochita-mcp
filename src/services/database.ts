@@ -9,15 +9,15 @@ const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export interface Database {
   setReminder: (reminders: Omit<Reminder, 'id'>) => Promise<boolean>;
-  getReminders: (filters?: Array<Filter>) => Promise<Array<Reminder>>;
-  deleteReminders: (filters: Array<Filter>) => Promise<boolean>;
+  getReminders: (filters?: Filter[]) => Promise<Reminder[]>;
+  deleteReminders: (filters: Filter[]) => Promise<boolean>;
 }
 
-export type Filter = {
+export interface Filter {
   field: string;
   operator: string;
   value: string;
-};
+}
 
 export interface Reminder {
   id: string;
@@ -32,10 +32,12 @@ export class Supabase implements Database {
   async setReminder(reminder: Omit<Reminder, 'id'>) {
     const result = await supabaseClient.from('reminders').insert(reminder);
 
+    console.log(result);
+
     return result.status === 201;
   }
 
-  async getReminders(filters?: Array<Filter>) {
+  async getReminders(filters?: Filter[]) {
     const query = supabaseClient.from('reminders').select('*');
 
     if (filters) {
@@ -47,13 +49,13 @@ export class Supabase implements Database {
     const result = await query;
 
     if (result?.data) {
-      return result.data as Array<Reminder>;
+      return result.data as Reminder[];
     }
 
     return [];
   }
 
-  async deleteReminders(filters: Array<Filter>) {
+  async deleteReminders(filters: Filter[]) {
     const query = supabaseClient.from('reminders').delete();
 
     if (filters) {
@@ -63,8 +65,6 @@ export class Supabase implements Database {
     }
 
     const result = await query;
-
-    console.log(result);
 
     return result.status === 204;
   }
