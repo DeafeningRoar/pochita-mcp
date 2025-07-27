@@ -10,6 +10,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import express from 'express';
 
 import setupLOANewsTools from './tools/loa-news';
+import reminders from './tools/reminders';
 
 const PORT = process.env.PORT || 3000;
 
@@ -32,6 +33,7 @@ const setupServer = () => {
   );
 
   setupLOANewsTools(server);
+  reminders(server);
 
   return server;
 };
