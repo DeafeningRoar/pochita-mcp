@@ -35,12 +35,10 @@ export class Supabase implements Database {
   }
 
   async getReminders(filters?: Array<Filter>) {
-    const query = supabaseClient
-      .from('reminders')
-      .select('*');
+    const query = supabaseClient.from('reminders').select('*');
 
     if (filters) {
-      for(const filter of filters) {
+      for (const filter of filters) {
         query.filter(filter.field, filter.operator, filter.value);
       }
     }
@@ -55,6 +53,18 @@ export class Supabase implements Database {
   }
 
   async deleteReminders(filters: Array<Filter>) {
-    return true;
+    const query = supabaseClient.from('reminders').delete();
+
+    if (filters) {
+      for (const filter of filters) {
+        query.filter(filter.field, filter.operator, filter.value);
+      }
+    }
+
+    const result = await query;
+
+    console.log(result);
+
+    return result.status === 204;
   }
 }

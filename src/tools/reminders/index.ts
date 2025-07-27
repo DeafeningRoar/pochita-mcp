@@ -54,7 +54,7 @@ const setupTools = (server: McpServer) => {
         const reminder: Omit<Reminder, 'id'> = {
           name: userName,
           target_id: userId,
-          due_date: dueDate.toISOString(),
+          due_date: dueDate.toUTCString(),
           description,
         };
 
@@ -80,17 +80,17 @@ const setupTools = (server: McpServer) => {
 
 const pollReminders = async () => {
   const dbClient = new Supabase();
-
-  const reminders = await dbClient.getReminders([
+  const filters = [
     {
       field: 'due_date',
       operator: 'lte',
-      value: new Date().toISOString(),
+      value: new Date().toUTCString(),
     },
-  ]);
+  ];
+
+  const reminders = await dbClient.getReminders(filters);
 
   if (!reminders.length) {
-    console.log('No reminders found');
     return;
   }
 
@@ -107,6 +107,8 @@ const pollReminders = async () => {
       },
     },
   );
+
+  await dbClient.deleteReminders(filters);
 
   console.log(`Successfully triggered ${reminders.length} reminders`);
 };
