@@ -64,6 +64,7 @@ const setupTools = (server: McpServer, dbClient: Database) => {
         const timeIncrease = timeValue * timeIntervals[timeUnit];
 
         dueDate.setUTCMinutes(dueDate.getUTCMinutes() + timeIncrease);
+        dueDate.setUTCSeconds(0, 0);
 
         const reminder: Omit<Reminder, 'id'> = {
           name: userName,
@@ -154,7 +155,7 @@ const setupTools = (server: McpServer, dbClient: Database) => {
           }, '');
 
         return {
-          content: [{ type: 'text', text: response.trim() || "0 reminders found" }],
+          content: [{ type: 'text', text: response.trim() || '0 reminders found' }],
         };
       } catch (error) {
         console.error(`Error fetching reminders`, { recipientId }, error);
@@ -203,8 +204,23 @@ const pollReminders = async () => {
   console.log(`Successfully triggered ${reminders.length} reminders`);
 };
 
-setInterval(() => {
-  pollReminders().catch((e) => console.log('Error polling reminders', e));
-}, Number(process.env.REMINDERS_POLLING_INTERVAL));
+const now = new Date();
+const seconds = now.getUTCSeconds();
+const milliseconds = now.getUTCMilliseconds();
+
+let delay;
+if (seconds < 3) {
+  delay = (3 - seconds) * 1000 - milliseconds;
+} else {
+  delay = (60 - seconds + 3) * 1000 - milliseconds;
+}
+
+setTimeout(() => {
+  pollReminders();
+
+  setInterval(() => {
+    pollReminders().catch((e) => console.log('Error polling reminders', e));
+  }, Number(process.env.REMINDERS_POLLING_INTERVAL));
+}, delay);
 
 export default setupTools;
