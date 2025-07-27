@@ -23,7 +23,11 @@ const setupTools = (server: McpServer) => {
         description: z
           .string()
           .describe('Description of what the user wants to be reminded of, include any context as needed.'),
-        timeValue: z.number().describe('The value of the relative time when the reminder will be triggered.'),
+        timeValue: z
+          .number()
+          .describe(
+            'The value of the relative time when the reminder will be triggered. Decimals can be used to represent fractions when needed (e.g., "in 9 hours and 30 minutes" would translate to 9.5 hours).',
+          ),
         timeUnit: z
           .enum(['minutes', 'hours', 'days'])
           .describe('The time unit of the relative time when the reminder will be triggered.'),
