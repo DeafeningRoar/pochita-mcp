@@ -9,6 +9,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import express from 'express';
 
+import { Supabase } from './services/database';
+
 import setupLOANewsTools from './tools/loa-news';
 import reminders from './tools/reminders';
 
@@ -32,8 +34,10 @@ const setupServer = () => {
     },
   );
 
+  const dbClient = new Supabase();
+
   setupLOANewsTools(server);
-  reminders(server);
+  reminders(server, dbClient);
 
   return server;
 };

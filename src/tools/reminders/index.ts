@@ -1,5 +1,5 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { Reminder } from '../../services/database';
+import type { Database, Reminder } from '../../services/database';
 
 import { z } from 'zod';
 import axios from 'axios';
@@ -10,7 +10,7 @@ const agentAPI = axios.create({
   baseURL: process.env.AGENT_API_URL,
 });
 
-const setupTools = (server: McpServer) => {
+const setupTools = (server: McpServer, dbClient: Database) => {
   server.registerTool(
     'set-discord-reminder',
     {
@@ -49,7 +49,6 @@ const setupTools = (server: McpServer) => {
           timeUnit,
         });
 
-        const dbClient = new Supabase();
         const dueDate = new Date();
 
         const timeIntervals = {
@@ -84,6 +83,80 @@ const setupTools = (server: McpServer) => {
 
         return {
           content: [{ type: 'text', text: 'Error setting up reminder' }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'get-discord-reminders',
+    {
+      title: 'Get Discord User Reminders',
+      description: 'Gets all of the reminders that have yet to trigger of a given Discord User',
+      inputSchema: z.object({
+        userId: z.string().describe('Discord User Id owner of the reminders'),
+      }).shape,
+    },
+    async ({ userId }) => {
+      try {
+        console.log('Attempting to fetch reminders', {
+          userId,
+        });
+
+        const reminders = await dbClient.getReminders([{ field: 'target_id', operator: 'eq', value: userId }]);
+
+        const msTimeFrames = {
+          minutes: 60000,
+          hours: 60000 * 60,
+          days: 60000 * 60 * 24,
+        };
+
+        const currentDate = new Date();
+        const response = reminders
+          .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime())
+          .reduce((acc, reminder, index) => {
+            const { due_date, description, context_prompt } = reminder;
+            const dueDate = new Date(due_date);
+
+            const dueInMs = dueDate.getTime();
+            const currentMs = currentDate.getTime();
+
+            let timeLeftMs = dueInMs - currentMs;
+            let timeLeft = '';
+
+            if (timeLeftMs >= msTimeFrames.days) {
+              const daysLeft = Math.floor(timeLeftMs / msTimeFrames.days);
+              timeLeft += `${daysLeft} days `;
+              timeLeftMs -= daysLeft * msTimeFrames.days;
+            }
+
+            if (timeLeftMs >= msTimeFrames.hours) {
+              const hoursLeft = Math.floor(timeLeftMs / msTimeFrames.hours);
+              timeLeft += `${hoursLeft} hours `;
+              timeLeftMs -= hoursLeft * msTimeFrames.hours;
+            }
+
+            if (timeLeftMs >= msTimeFrames.minutes) {
+              const minutesLeft = Math.floor(timeLeftMs / msTimeFrames.minutes);
+              timeLeft += `${minutesLeft} minutes `;
+              timeLeftMs -= minutesLeft * msTimeFrames.minutes;
+            }
+
+            acc += `\n${
+              index + 1
+            }. [Reminder In ${timeLeft.trim()}]\n- **Description**\n${description}\n- **Context**\n${context_prompt}`;
+
+            return acc;
+          }, '');
+
+        return {
+          content: [{ type: 'text', text: response.trim() }],
+        };
+      } catch (error) {
+        console.error(`Error fetching reminders`, { userId }, error);
+
+        return {
+          content: [{ type: 'text', text: 'Error fetching user reminders' }],
         };
       }
     },
