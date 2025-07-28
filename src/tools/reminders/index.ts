@@ -14,32 +14,32 @@ const setupTools = (server: McpServer, dbClient: Database) => {
   server.registerTool(
     'set-discord-reminder',
     {
-      title: 'Set Discord Reminder',
+      title: 'Set Discord Reminder or Scheduled Message',
       description:
-        'Sets a reminder to be sent through Discord to a specific recipient (an User or a Channel). Requires a relative time (e.g., "in 30 minutes", "in 2 hours"). If the user provides an absolute time (like "at 3 PM" or "tomorrow at noon") ask them to rephrase using a relative format. Do not assume the user’s time zone.',
+        'Sets a reminder or scheduled message to be sent through Discord to a specific recipient (an User or a Channel). Requires a relative time (e.g., "in 30 minutes", "in 2 hours"). If the user provides an absolute time (like "at 3 PM" or "tomorrow at noon") ask them to rephrase using a relative format. Do not assume the user’s time zone.',
       inputSchema: z.object({
         targetId: z
           .string()
           .describe(
-            'Discord recipient Id where the reminder will be sent to. Can be either an User Id or a Channel Id.',
+            'Discord recipient Id where the message will be sent to. Can be either an User Id or a Channel Id.',
           ),
         userName: z.string().describe('Discord user name of the recipient.'),
         description: z
           .string()
-          .describe('Description of what the user wants to be reminded of, include any context as needed.'),
+          .describe('Description of what the user wants to be messaged about, include any context as needed.'),
         prompt: z
           .string()
           .describe(
-            'Context prompt that will be given to an AI Agent when the reminder is triggered to give it more context when reminding the user.',
+            'Context prompt that will be given to an AI Agent when the message is triggered to give it more context when messaging the user.',
           ),
         timeValue: z
           .number()
           .describe(
-            'The value of the relative time when the reminder will be triggered. Decimals can be used to represent fractions when needed (e.g., "in 9 hours and 30 minutes" would translate to 9.5 hours).',
+            'The value of the relative time when the message will be triggered. Decimals can be used to represent fractions when needed (e.g., "in 9 hours and 30 minutes" would translate to 9.5 hours).',
           ),
         timeUnit: z
           .enum(['minutes', 'hours', 'days'])
-          .describe('The time unit of the relative time when the reminder will be triggered.'),
+          .describe('The time unit of the relative time when the message will be triggered.'),
       }).shape,
     },
     async ({ targetId, userName, description, prompt, timeValue, timeUnit }) => {
@@ -96,10 +96,10 @@ const setupTools = (server: McpServer, dbClient: Database) => {
   server.registerTool(
     'get-discord-reminders',
     {
-      title: 'Get Discord Reminders for a given User or Channel Id.',
-      description: 'Gets all of the reminders that have yet to trigger of a given Discord User or Channel.',
+      title: 'Get Discord Reminders or Scheduled Messages for a given User or Channel Id.',
+      description: 'Gets all of the messages that have yet to trigger of a given Discord User or Channel.',
       inputSchema: z.object({
-        recipientId: z.string().describe('Discord Id recipient of the reminders. Can be an User Id or a Channel Id.'),
+        recipientId: z.string().describe('Discord Id recipient of the messages. Can be an User Id or a Channel Id.'),
       }).shape,
     },
     async ({ recipientId }) => {
@@ -186,7 +186,7 @@ const pollReminders = async () => {
 
   await agentAPI.post(
     '/reminders',
-    reminders.map(reminder => ({
+    reminders.map((reminder) => ({
       targetId: reminder.target_id,
       userName: reminder.name,
       description: reminder.description,
@@ -219,7 +219,7 @@ setTimeout(() => {
   pollReminders();
 
   setInterval(() => {
-    pollReminders().catch(e => console.log('Error polling reminders', e));
+    pollReminders().catch((e) => console.log('Error polling reminders', e));
   }, Number(process.env.REMINDERS_POLLING_INTERVAL));
 }, delay);
 
