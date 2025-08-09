@@ -13,6 +13,7 @@ import { Supabase } from './services/database';
 
 import setupLOANewsTools from './tools/loa-news';
 import reminders from './tools/reminders';
+import utilities from './tools/utilities';
 
 const PORT = process.env.PORT || 3000;
 
@@ -38,6 +39,7 @@ const setupServer = () => {
 
   setupLOANewsTools(server);
   reminders(server, dbClient);
+  utilities(server);
 
   return server;
 };
