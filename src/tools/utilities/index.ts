@@ -32,7 +32,7 @@ const setupTools = (server: McpServer) => {
     'web-search',
     {
       title: 'Real-Time Web Information Retrieval',
-      description: `Use this tool only when the user’s request requires up-to-date, specific, or niche information that may not be in your training data, or when you are uncertain about the answer.
+      description: `This tool will ask an AI Agent to search the web for information. Use this tool only when the user’s request requires up-to-date, specific, or niche information that may not be in your training data, or when you are uncertain about the answer.
 
 Do not fabricate or guess the results — always return the exact tool output.
 
@@ -42,16 +42,16 @@ Summarize and integrate the returned results naturally into your answer without 
 
 Prefer one high-quality call over multiple unnecessary queries.`,
       inputSchema: z.object({
-        query: z.string().describe('The query to search the web for information.'),
+        prompt: z.string().describe('The prompt the AI Agent will use to search the web for information.'),
       }).shape,
     },
-    async ({ query }) => {
+    async ({ prompt }) => {
       try {
         console.log('Attempting to search the web for information', {
-          query,
+          prompt,
         });
 
-        const response = await PerplexityService.query(query);
+        const response = await PerplexityService.query(prompt);
 
         const { choices, citations } = response as PerplexityResponse;
         const openAIResponse = choices[0].message.content as string;
@@ -62,7 +62,7 @@ Prefer one high-quality call over multiple unnecessary queries.`,
           content: [{ type: 'text', text: formattedResponse }],
         };
       } catch (error) {
-        console.error(`Error searching the web for information`, { query }, error);
+        console.error(`Error searching the web for information`, { prompt }, error);
 
         return {
           content: [{ type: 'text', text: 'Error searching the web for information' }],
