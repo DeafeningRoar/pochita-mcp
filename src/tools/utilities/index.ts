@@ -31,7 +31,7 @@ const setupTools = (server: McpServer) => {
   server.registerTool(
     'web-search',
     {
-      title: 'Real-Time Web Information Retrieval',
+      title: 'Real-Time Web Information Retrieval through an AI Agent',
       description: `This tool will ask an AI Agent to search the web for information. Use this tool only when the user’s request requires up-to-date, specific, or niche information that may not be in your training data, or when you are uncertain about the answer.
 
 Do not fabricate or guess the results — always return the exact tool output.
