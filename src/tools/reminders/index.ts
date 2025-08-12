@@ -16,7 +16,16 @@ const setupTools = (server: McpServer, dbClient: Database) => {
     {
       title: 'Set Discord Reminder or Scheduled Message',
       description:
-        'Sets a reminder or scheduled message to be sent through Discord to a specific recipient (an User or a Channel). Requires a relative time (e.g., "in 30 minutes", "in 2 hours"). If the user provides an absolute time (like "at 3 PM" or "tomorrow at noon") ask them to rephrase using a relative format. Do not assume the user’s time zone.',
+        `Sets a reminder or scheduled message to be sent through Discord to a specific recipient (an User or a Channel).
+
+        Requires a relative time (e.g., "in 30 minutes", "in 2 hours").
+        If the user provides an absolute time (like "at 3 PM" or "tomorrow at noon") ask them to rephrase using a relative format.
+        Do not assume the user’s time zone.
+
+        If the reminder already exists, it will be updated with the new time and description.
+
+        Always make sure to call the get-discord-reminders tool to check if the reminder already exists before setting it.
+        `,
       inputSchema: z.object({
         targetId: z
           .string()
