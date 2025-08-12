@@ -53,6 +53,24 @@ const setupTools = (server: McpServer, dbClient: Database) => {
           timeUnit,
         });
 
+        const currentReminders = await dbClient.getReminders([
+          {
+            field: 'target_id',
+            operator: 'eq',
+            value: targetId,
+          },
+        ]);
+
+        if (currentReminders.length) {
+          const isDuplicate = currentReminders.some(reminder => reminder.description === description);
+
+          if (isDuplicate) {
+            return {
+              content: [{ type: 'text', text: 'Reminder already exists' }],
+            };
+          }
+        }
+
         const dueDate = new Date();
 
         const timeIntervals = {
