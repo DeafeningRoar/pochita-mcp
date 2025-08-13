@@ -5,6 +5,7 @@ import type { Database, Fact } from '../../services/database';
 import { z } from 'zod';
 import PerplexityService from '../../services/perplexity';
 import { TablesEnum } from '../../services/database';
+import cache from '../../services/cache';
 
 import { decrypt, encrypt } from '../../utils/encription';
 
@@ -86,6 +87,14 @@ Prefer one high-quality call over multiple unnecessary queries.`,
     },
     async ({ targetId }) => {
       try {
+        const cachedFacts = cache.getCache<string>(targetId);
+
+        if (cachedFacts) {
+          return {
+            content: [{ type: 'text', text: cachedFacts }],
+          };
+        }
+
         const currentFacts = await dbClient.select<Fact>(TablesEnum.FACTS, {
           filters: [{ field: 'target_id', operator: 'eq', value: targetId }],
         });
@@ -112,6 +121,8 @@ Name: ${name ?? 'unknown'}
 
 [FACTS]
 ${facts}`.trim();
+
+        cache.setCache(targetId, facts, 60 * 24);
 
         return {
           content: [{ type: 'text', text: facts }],
@@ -175,6 +186,8 @@ ${facts}`.trim();
             })),
           );
         }
+
+        cache.deleteCache(targetId);
 
         return {
           content: [{ type: 'text', text: 'Facts updated' }],
