@@ -44,7 +44,9 @@ export class Supabase implements Database {
   async insert<T>(table: string, data: T) {
     const result = await supabaseClient.from(table).insert(data);
 
-    console.log(result);
+    if (result.error) {
+      throw result.error;
+    }
 
     return result.status === 201;
   }
@@ -63,6 +65,10 @@ export class Supabase implements Database {
 
     const result = await query;
 
+    if (result.error) {
+      throw result.error;
+    }
+
     if (result?.data) {
       return result.data as T[];
     }
@@ -80,6 +86,10 @@ export class Supabase implements Database {
     }
 
     const result = await query;
+
+    if (result.error) {
+      throw result.error;
+    }
 
     return result.status === 204;
   }

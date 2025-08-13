@@ -152,14 +152,16 @@ ${facts}`.trim();
           });
 
           const factsToRemove = currentFacts.filter(fact =>
-            remove.map(r => r).includes(fact.id),
+            remove.map(r => `${r}`).includes(`${fact.id}`),
           );
 
           if (factsToRemove.length) {
-            await dbClient.delete(TablesEnum.FACTS, [
+            const result = await dbClient.delete(TablesEnum.FACTS, [
               { field: 'target_id', operator: 'eq', value: targetId },
-              { field: 'id', operator: 'in', value: factsToRemove },
+              { field: 'id', operator: 'in', value: `(${factsToRemove.map(f => f.id).join(',')})` },
             ]);
+
+            console.log(`Removed (${factsToRemove.length}) facts: ${result}`);
           }
         }
 
