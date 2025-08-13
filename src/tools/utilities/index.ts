@@ -190,6 +190,7 @@ ${facts}`.trim();
         }
 
         cache.deleteCache(targetId);
+        cache.deleteCache(`internal-facts:${targetId}`);
 
         return {
           content: [{ type: 'text', text: 'Facts updated' }],
