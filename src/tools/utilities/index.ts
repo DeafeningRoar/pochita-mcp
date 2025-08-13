@@ -1,8 +1,12 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { ChatCompletion } from 'openai/resources/chat';
+import type { Database, Fact } from '../../services/database';
 
 import { z } from 'zod';
 import PerplexityService from '../../services/perplexity';
+import { TablesEnum } from '../../services/database';
+
+import { decrypt, encrypt } from '../../utils/encription';
 
 type PerplexityResponse = ChatCompletion & {
   citations: string[];
@@ -27,7 +31,7 @@ const embedCitations = (response: string, citations?: string[]): string => {
   return response;
 };
 
-const setupTools = (server: McpServer) => {
+const setupTools = (server: McpServer, dbClient: Database) => {
   server.registerTool(
     'web-search',
     {
@@ -66,6 +70,118 @@ Prefer one high-quality call over multiple unnecessary queries.`,
 
         return {
           content: [{ type: 'text', text: 'Error searching the web for information' }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'get-facts',
+    {
+      title: 'Get current facts about an user or channel.',
+      description: 'Gets all the persisted facts about an user or channel.',
+      inputSchema: z.object({
+        targetId: z.string().describe('Id of the user or channel that the facts belong to.'),
+      }).shape,
+    },
+    async ({ targetId }) => {
+      try {
+        const currentFacts = await dbClient.select<Fact>(TablesEnum.FACTS, {
+          filters: [{ field: 'target_id', operator: 'eq', value: targetId }],
+        });
+
+        if (!currentFacts?.length) {
+          return {
+            content: [{ type: 'text', text: 'No facts found.' }],
+          };
+        }
+
+        let facts = currentFacts
+          .reduce((acc, { fact }) => {
+            acc += `- ${decrypt(fact)}\n`;
+
+            return acc;
+          }, '')
+          .trim();
+
+        const { name } = currentFacts[0];
+
+        facts = `[FACTS OWNER]
+ID: ${targetId}
+Name: ${name ?? 'unknown'}
+
+[FACTS]
+${facts}`.trim();
+
+        return {
+          content: [{ type: 'text', text: facts }],
+        };
+      } catch (error: unknown) {
+        console.error('Error getting facts', { targetId }, error);
+
+        return {
+          content: [{ type: 'text', text: 'Error updating facts' }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'update-facts',
+    {
+      title: 'Update user or channel facts.',
+      description: 'Add or remove persistent facts about an user or channel.',
+      inputSchema: z.object({
+        targetId: z.string().describe('Id of the user or channel the facts belong to.'),
+        name: z.string().describe('Name of the user or channel the facts belongs to.').optional(),
+        add: z.array(z.string()).describe('List of facts to be stored').optional(),
+        remove: z.array(z.string()).describe('List of facts to be removed').optional(),
+      }).shape,
+    },
+    async ({ targetId, name, add, remove }) => {
+      try {
+        if (!add?.length && !remove?.length) {
+          return {
+            content: [{ type: 'text', text: 'No facts provided to update.' }],
+          };
+        }
+
+        if (remove?.length) {
+          const currentFacts = await dbClient.select<Fact>(TablesEnum.FACTS, {
+            filters: [{ field: 'target_id', operator: 'eq', value: targetId }],
+          });
+
+          const factsToRemove = currentFacts.filter(fact =>
+            remove.map(r => r.toLowerCase()).includes(fact.fact.toLowerCase()),
+          );
+
+          if (factsToRemove.length) {
+            await dbClient.delete(TablesEnum.FACTS, [
+              { field: 'target_id', operator: 'eq', value: targetId },
+              { field: 'fact', operator: 'in', value: factsToRemove },
+            ]);
+          }
+        }
+
+        if (add?.length) {
+          await dbClient.insert(
+            TablesEnum.FACTS,
+            add.map(fact => ({
+              target_id: targetId,
+              name,
+              fact: encrypt(fact),
+            })),
+          );
+        }
+
+        return {
+          content: [{ type: 'text', text: 'Facts updated' }],
+        };
+      } catch (error: unknown) {
+        console.error('Error updating facts', { targetId, add, remove }, error);
+
+        return {
+          content: [{ type: 'text', text: 'Error updating facts' }],
         };
       }
     },

@@ -16,7 +16,7 @@ export interface Database {
 export interface Filter {
   field: string;
   operator: string;
-  value: string;
+  value: unknown;
 }
 
 export interface Reminder {
@@ -26,6 +26,13 @@ export interface Reminder {
   context_prompt: string;
   description: string;
   due_date: string;
+}
+
+export interface Fact {
+  id: string;
+  target_id: string;
+  name: string;
+  fact: string;
 }
 
 export enum TablesEnum {

@@ -39,7 +39,7 @@ const setupServer = () => {
 
   setupLOANewsTools(server);
   reminders(server, dbClient);
-  utilities(server);
+  utilities(server, dbClient);
 
   return server;
 };
