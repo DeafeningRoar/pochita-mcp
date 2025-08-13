@@ -90,6 +90,8 @@ Prefer one high-quality call over multiple unnecessary queries.`,
         const cachedFacts = cache.getCache<string>(targetId);
 
         if (cachedFacts) {
+          console.log(`Facts cache hit with key ${targetId}`);
+
           return {
             content: [{ type: 'text', text: cachedFacts }],
           };
