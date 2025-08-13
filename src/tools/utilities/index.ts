@@ -152,7 +152,7 @@ ${facts}`.trim();
           });
 
           const factsToRemove = currentFacts.filter(fact =>
-            remove.map(r => r.toLowerCase()).includes(fact.fact.toLowerCase()),
+            remove.map(r => decrypt(r).toLowerCase()).includes(fact.fact.toLowerCase()),
           );
 
           if (factsToRemove.length) {
