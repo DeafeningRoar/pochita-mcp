@@ -97,8 +97,8 @@ Prefer one high-quality call over multiple unnecessary queries.`,
         }
 
         let facts = currentFacts
-          .reduce((acc, { fact }) => {
-            acc += `- ${decrypt(fact)}\n`;
+          .reduce((acc, { id, fact }) => {
+            acc += `- [${id}] ${decrypt(fact)}\n`;
 
             return acc;
           }, '')
@@ -130,12 +130,12 @@ ${facts}`.trim();
     'update-facts',
     {
       title: 'Update user or channel facts.',
-      description: 'Add or remove persistent facts about an user or channel.',
+      description: 'Add or remove persistent facts about an user or channel. When removing a fact, you must provide its id.',
       inputSchema: z.object({
         targetId: z.string().describe('Id of the user or channel the facts belong to.'),
         name: z.string().describe('Name of the user or channel the facts belongs to.').optional(),
         add: z.array(z.string()).describe('List of facts to be stored').optional(),
-        remove: z.array(z.string()).describe('List of facts to be removed').optional(),
+        remove: z.array(z.string()).describe('Ids of the facts to be removed').optional(),
       }).shape,
     },
     async ({ targetId, name, add, remove }) => {
@@ -152,13 +152,13 @@ ${facts}`.trim();
           });
 
           const factsToRemove = currentFacts.filter(fact =>
-            remove.map(r => decrypt(r).toLowerCase()).includes(fact.fact.toLowerCase()),
+            remove.map(r => r).includes(fact.id),
           );
 
           if (factsToRemove.length) {
             await dbClient.delete(TablesEnum.FACTS, [
               { field: 'target_id', operator: 'eq', value: targetId },
-              { field: 'fact', operator: 'in', value: factsToRemove },
+              { field: 'id', operator: 'in', value: factsToRemove },
             ]);
           }
         }
