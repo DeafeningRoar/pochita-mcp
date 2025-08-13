@@ -8,9 +8,9 @@ const { SUPABASE_KEY, SUPABASE_URL } = process.env as {
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export interface Database {
-  setReminder: (reminders: Omit<Reminder, 'id'>) => Promise<boolean>;
-  getReminders: (filters?: Filter[]) => Promise<Reminder[]>;
-  deleteReminders: (filters: Filter[]) => Promise<boolean>;
+  insert: <T>(table: string, data: T) => Promise<boolean>;
+  select: <T>(table: string, { filters, columns }: { filters?: Filter[]; columns?: string }) => Promise<T[]>;
+  delete: (table: string, filters: Filter[]) => Promise<boolean>;
 }
 
 export interface Filter {
@@ -28,17 +28,25 @@ export interface Reminder {
   due_date: string;
 }
 
+export enum TablesEnum {
+  REMINDERS = 'reminders',
+  FACTS = 'facts',
+};
+
 export class Supabase implements Database {
-  async setReminder(reminder: Omit<Reminder, 'id'>) {
-    const result = await supabaseClient.from('reminders').insert(reminder);
+  async insert<T>(table: string, data: T) {
+    const result = await supabaseClient.from(table).insert(data);
 
     console.log(result);
 
     return result.status === 201;
   }
 
-  async getReminders(filters?: Filter[]) {
-    const query = supabaseClient.from('reminders').select('*');
+  async select<T>(
+    table: string,
+    { filters, columns }: { filters?: Filter[]; columns?: string } = { columns: '*' },
+  ): Promise<T[]> {
+    const query = supabaseClient.from(table).select(columns);
 
     if (filters) {
       for (const filter of filters) {
@@ -49,14 +57,14 @@ export class Supabase implements Database {
     const result = await query;
 
     if (result?.data) {
-      return result.data as Reminder[];
+      return result.data as T[];
     }
 
     return [];
   }
 
-  async deleteReminders(filters: Filter[]) {
-    const query = supabaseClient.from('reminders').delete();
+  async delete(table: string, filters: Filter[]) {
+    const query = supabaseClient.from(table).delete();
 
     if (filters) {
       for (const filter of filters) {

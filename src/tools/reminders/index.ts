@@ -4,7 +4,7 @@ import type { Database, Reminder } from '../../services/database';
 import { z } from 'zod';
 import axios from 'axios';
 
-import { Supabase } from '../../services/database';
+import { Supabase, TablesEnum } from '../../services/database';
 
 const agentAPI = axios.create({
   baseURL: process.env.AGENT_API_URL,
@@ -15,8 +15,7 @@ const setupTools = (server: McpServer, dbClient: Database) => {
     'set-discord-reminder',
     {
       title: 'Set Discord Reminder or Scheduled Message',
-      description:
-        `Sets a reminder or scheduled message to be sent through Discord to a specific recipient (an User or a Channel).
+      description: `Sets a reminder or scheduled message to be sent through Discord to a specific recipient (an User or a Channel).
 
         Requires a relative time (e.g., "in 30 minutes", "in 2 hours").
         If the user provides an absolute time (like "at 3 PM" or "tomorrow at noon") ask them to rephrase using a relative format.
@@ -62,13 +61,15 @@ const setupTools = (server: McpServer, dbClient: Database) => {
           timeUnit,
         });
 
-        const currentReminders = await dbClient.getReminders([
-          {
-            field: 'target_id',
-            operator: 'eq',
-            value: targetId,
-          },
-        ]);
+        const currentReminders = await dbClient.select<Reminder>(TablesEnum.REMINDERS, {
+          filters: [
+            {
+              field: 'target_id',
+              operator: 'eq',
+              value: targetId,
+            },
+          ],
+        });
 
         if (currentReminders.length) {
           const isDuplicate = currentReminders.some(reminder => reminder.description === description);
@@ -101,7 +102,7 @@ const setupTools = (server: McpServer, dbClient: Database) => {
           description,
         };
 
-        const created = await dbClient.setReminder(reminder);
+        const created = await dbClient.insert(TablesEnum.REMINDERS, reminder);
 
         if (!created) {
           throw new Error(`Error inserting reminder`);
@@ -135,7 +136,9 @@ const setupTools = (server: McpServer, dbClient: Database) => {
           recipientId,
         });
 
-        const reminders = await dbClient.getReminders([{ field: 'target_id', operator: 'eq', value: recipientId }]);
+        const reminders = await dbClient.select<Reminder>(TablesEnum.REMINDERS, {
+          filters: [{ field: 'target_id', operator: 'eq', value: recipientId }],
+        });
 
         const msTimeFrames = {
           minutes: 60000,
@@ -205,7 +208,7 @@ const pollReminders = async () => {
     },
   ];
 
-  const reminders = await dbClient.getReminders(filters);
+  const reminders = await dbClient.select<Reminder>(TablesEnum.REMINDERS, { filters });
 
   if (!reminders.length) {
     return;
@@ -226,7 +229,7 @@ const pollReminders = async () => {
     },
   );
 
-  await dbClient.deleteReminders(filters);
+  await dbClient.delete(TablesEnum.REMINDERS, filters);
 
   console.log(`Successfully triggered ${reminders.length} reminders`);
 };
