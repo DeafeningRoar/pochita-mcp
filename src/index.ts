@@ -14,6 +14,7 @@ import { Supabase } from './services/database';
 import setupLOANewsTools from './tools/loa-news';
 import reminders from './tools/reminders';
 import utilities from './tools/utilities';
+import routes from './routes';
 
 const PORT = process.env.PORT || 3000;
 
@@ -91,6 +92,8 @@ app.post('/mcp', async (req, res) => {
     }
   }
 });
+
+app.use('/api', routes);
 
 app.listen(PORT, () => {
   console.log('Server is running on port', PORT);
