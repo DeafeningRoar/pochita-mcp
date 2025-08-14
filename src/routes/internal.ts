@@ -14,7 +14,7 @@ router.get('/facts/:targetId', async (req, res) => {
     const cacheKey = `internal-facts:${targetId}`;
     const cachedFacts = cache.getCache<string>(cacheKey);
 
-    if (cachedFacts) {
+    if (typeof cachedFacts !== 'undefined') {
       console.log(`Internal facts cache hit with key ${targetId}`);
 
       res.send(cachedFacts?.length ? cachedFacts : undefined);
