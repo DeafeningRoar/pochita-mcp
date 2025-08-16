@@ -116,7 +116,9 @@ const setupTools = (server: McpServer) => {
           .describe(
             'The full URL of the Lost Ark Global news article. Must start with either https://www.playlostark.com/en-us for English or https://www.playlostark.com/es-es for Spanish',
           ),
-        language: z.enum(['en-us', 'es-es']).describe('The language of the article. en-us for English or es-es for Spanish'),
+        language: z
+          .enum(['en-us', 'es-es'])
+          .describe('The language of the article. en-us for English or es-es for Spanish'),
         prompt: z
           .string()
           .describe(
@@ -134,7 +136,7 @@ const setupTools = (server: McpServer) => {
           };
         }
 
-        url = url.replace(/(en-us)|(es-es)/ig, language);
+        url = url.replace(/(en-us)|(es-es)/gi, language);
 
         const cachedData = cache.getCache<string>(`get-news-details-${url}`);
 
@@ -291,7 +293,9 @@ const setupTools = (server: McpServer) => {
           .describe(
             'Prompt given to the agent that will process the full article. The article itself will be included along the given prompt.',
           ),
-        language: z.enum(['en-us', 'es-es']).describe('The language of the article. en-us for English or es-es for Spanish'),
+        language: z
+          .enum(['en-us', 'es-es'])
+          .describe('The language of the article. en-us for English or es-es for Spanish'),
       }).shape,
     },
     async ({ url, prompt, language }) => {
@@ -304,7 +308,7 @@ const setupTools = (server: McpServer) => {
           };
         }
 
-        url = url.replace(/(en-us)|(es-es)/ig, language);
+        url = url.replace(/(en-us)|(es-es)/gi, language);
 
         const cachedData = cache.getCache<string>(`get-global-release-details-${url}`);
 
@@ -455,12 +459,17 @@ const setupTools = (server: McpServer) => {
     {
       title: 'Get Lost Ark Korea News List',
       description: 'Fetch the latest Lost Ark Korea news articles. Note: Titles are in Korean and may need translation',
+      inputSchema: z.object({
+        page: z.number().describe('The page number to fetch (default: 1)').optional().default(1),
+      }).shape,
     },
-    async () => {
+    async ({ page }) => {
       try {
-        console.log('get-kr-news-list');
+        console.log('get-kr-news-list', { page });
 
-        const { data } = await krLostArkAPI.get('/News/Notice/List');
+        const { data } = await krLostArkAPI.get(
+          `/News/Notice/List?page=${page}&searchtype=0&searchtext=&noticetype=all`,
+        );
 
         const $ = cheerio.load(data);
 
