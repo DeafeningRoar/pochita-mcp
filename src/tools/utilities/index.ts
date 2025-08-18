@@ -133,7 +133,7 @@ ${facts}`.trim();
         console.error('Error getting facts', { targetId }, error);
 
         return {
-          content: [{ type: 'text', text: 'Error updating facts' }],
+          content: [{ type: 'text', text: 'Error getting facts' }],
         };
       }
     },
