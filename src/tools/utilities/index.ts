@@ -3,7 +3,9 @@ import type { ChatCompletion } from 'openai/resources/chat';
 import type { Database, Fact } from '../../services/database';
 
 import { z } from 'zod';
+import axios from 'axios';
 import PerplexityService from '../../services/perplexity';
+import GrokImageService from '../../services/grok-image';
 import { TablesEnum } from '../../services/database';
 import cache from '../../services/cache';
 
@@ -12,6 +14,10 @@ import { decrypt, encrypt } from '../../utils/encription';
 type PerplexityResponse = ChatCompletion & {
   citations: string[];
 };
+
+const agentAPI = axios.create({
+  baseURL: process.env.AGENT_API_URL,
+});
 
 const embedCitations = (response: string, citations?: string[]): string => {
   try {
@@ -143,7 +149,8 @@ ${facts}`.trim();
     'update-facts',
     {
       title: 'Update user or channel facts.',
-      description: 'Add or remove persistent facts about an user or channel. When removing a fact, you must provide its id.',
+      description:
+        'Add or remove persistent facts about an user or channel. When removing a fact, you must provide its id.',
       inputSchema: z.object({
         targetId: z.string().describe('Id of the user or channel the facts belong to.'),
         name: z.string().describe('Name of the user or channel the facts belongs to.').optional(),
@@ -164,9 +171,7 @@ ${facts}`.trim();
             filters: [{ field: 'target_id', operator: 'eq', value: targetId }],
           });
 
-          const factsToRemove = currentFacts.filter(fact =>
-            remove.map(r => `${r}`).includes(`${fact.id}`),
-          );
+          const factsToRemove = currentFacts.filter(fact => remove.map(r => `${r}`).includes(`${fact.id}`));
 
           if (factsToRemove.length) {
             const result = await dbClient.delete(TablesEnum.FACTS, [
@@ -200,6 +205,64 @@ ${facts}`.trim();
 
         return {
           content: [{ type: 'text', text: 'Error updating facts' }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    'generate-image',
+    {
+      title: 'Generate an image based on a prompt.',
+      description: `Generate an image using AI based on the given prompt. Make sure to be very specific and detailed in the prompt. Only use this tool when the user asks for an image.`,
+      inputSchema: z.object({
+        prompt: z.string().describe('The prompt to generate an image from.'),
+        targetId: z.string().describe('The target ID to send the image to.'),
+        userName: z.string().describe('The user name who requested the image.'),
+      }).shape,
+    },
+    async ({ prompt, targetId, userName }) => {
+      try {
+        GrokImageService.generate(prompt)
+          .then((image) => {
+            const imageUrl = image.data?.[0].url;
+            const revisedPrompt = image.data?.[0].revised_prompt;
+
+            return agentAPI.post(
+              '/message',
+              {
+                message: `Image generated with initial prompt: ${prompt}.\n\nAI Revised Prompt: ${revisedPrompt}`,
+                reason: 'Agent Image generation.',
+                attachments: {
+                  image: imageUrl,
+                },
+                targetId,
+                userName,
+              },
+              {
+                headers: {
+                  'x-api-key': process.env.AGENT_API_KEY,
+                },
+              },
+            );
+          })
+          .catch((error) => {
+            console.error('Error generating image', {
+              prompt,
+              message: error.message,
+              status: error.status,
+              data: error?.response?.data || error?.data,
+            });
+          });
+
+        return {
+          content: [{ type: 'text', text: 'Image is being generated...' }],
+        };
+      } catch (error: unknown) {
+        console.error('Error generating image', { prompt }, error);
+
+        return {
+          content: [{ type: 'text', text: 'Error generating image' }],
         };
       }
     },
