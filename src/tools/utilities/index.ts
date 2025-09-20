@@ -214,10 +214,10 @@ ${facts}`.trim();
     'generate-image',
     {
       title: 'Generate an image based on a prompt.',
-      description: `Generate an image using AI based on the given prompt. Make sure to be very specific and detailed in the prompt. Only use this tool when the user asks for an image.`,
+      description: `Generates an image using AI based on the given prompt and sends it through Discord to a specific recipient (an User or a Channel). Make sure to be very specific and detailed in the prompt. Only use this tool when the user asks for an image.`,
       inputSchema: z.object({
         prompt: z.string().describe('The prompt to generate an image from.'),
-        targetId: z.string().describe('The target ID to send the image to.'),
+        targetId: z.string().describe('Discord recipient Id where the generated image will be sent to.'),
         userName: z.string().describe('The user name who requested the image.'),
       }).shape,
     },
