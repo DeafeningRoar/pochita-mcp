@@ -216,14 +216,15 @@ ${facts}`.trim();
       title: 'Generate an image based on a prompt.',
       description: `Generates an image using AI based on the given prompt and sends it through Discord to a specific recipient (an User or a Channel). Make sure to be very specific and detailed in the prompt. Only use this tool when the user asks for an image.`,
       inputSchema: z.object({
-        prompt: z.string().describe('The prompt to generate an image from.'),
+        prompt: z.string().describe('The prompt to generate an image from. Maximum length of 1024 characters.').max(1024),
         targetId: z.string().describe('Discord recipient Id where the generated image will be sent to.'),
         userName: z.string().describe('The user name who requested the image.'),
       }).shape,
     },
     async ({ prompt, targetId, userName }) => {
       try {
-        GrokImageService.generate(prompt)
+        const trimmedPrompt = prompt.length > 1024 ? prompt.slice(0, 1023) : prompt;
+        GrokImageService.generate(trimmedPrompt)
           .then((image) => {
             const imageUrl = image.data?.[0].url;
             const revisedPrompt = image.data?.[0].revised_prompt;
@@ -231,7 +232,7 @@ ${facts}`.trim();
             return agentAPI.post(
               '/message',
               {
-                message: `Image generated with initial prompt: ${prompt}.\n\nAI Revised Prompt: ${revisedPrompt}`,
+                message: `Image generated with initial prompt: ${trimmedPrompt}.\n\nAI Revised Prompt: ${revisedPrompt}`,
                 reason: 'Agent Image generation.',
                 attachments: {
                   image: imageUrl,
