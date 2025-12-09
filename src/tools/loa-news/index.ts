@@ -27,6 +27,18 @@ const krLostArkAPI = axios.create({
   },
 });
 
+const agentAPI = axios.create({
+  baseURL: process.env.AGENT_API_URL,
+});
+
+const postAsyncMessage = async (data: unknown) => {
+  return agentAPI.post('/message', data, {
+    headers: {
+      'x-api-key': process.env.AGENT_API_KEY,
+    },
+  });
+};
+
 const formatToMarkdown = (articles: { title: string; date?: string; summary?: string; url: string }[]) => {
   const markdown = articles
     .map((article, i) => {
@@ -136,84 +148,100 @@ const setupTools = (server: McpServer) => {
           };
         }
 
-        url = url.replace(/(en-us)|(es-es)/gi, language);
+        const promise = async () => {
+          url = url.replace(/(en-us)|(es-es)/gi, language);
 
-        const cachedData = cache.getCache<string>(`get-news-details-${url}`);
+          const cachedData = cache.getCache<string>(`get-news-details-${url}`);
 
-        if (cachedData) {
-          console.log('get-news-details cache hit', { url });
+          let result = '';
+          if (cachedData) {
+            console.log('get-news-details cache hit', { url });
 
-          const response = await OpenAIService.query(`${prompt}\n\n${cachedData}`);
+            const response = await OpenAIService.query(`${prompt}\n\n${cachedData}`);
 
-          return {
-            content: [{ type: 'text', text: response.output_text }],
-          };
-        }
+            result = response.output_text;
+          } else {
+            const { data } = await lostarknewsAPI.get(url);
 
-        const { data } = await lostarknewsAPI.get(url);
+            const $ = cheerio.load(data);
 
-        const $ = cheerio.load(data);
+            let articleContents = '';
 
-        let articleContents = '';
-
-        const articleClasses = {
-          title: [
-            'ags-rich-text-h1',
-            'ags-rich-text-h2',
-            'ags-rich-text-h3',
-            'ags-rich-text-h4',
-            'ags-rich-text-h5',
-            'ags-rich-text-h6',
-          ],
-          paragraph: ['ags-rich-text-p', 'ags-rich-text-blockquote'],
-          list: ['ags-rich-text-ul', 'ags-rich-text-ol'],
-          listItem: ['ags-rich-text-li'],
-        };
-
-        $('article.ags-NewsArticlePage-contentWrapper-articlePane-article > div.ags-rich-text-div')
-          .children()
-          .each((_, el) => {
-            const element = $(el);
-
-            const getSectionContent = (elem: typeof element, listLevel = 1) => {
-              let auxListLevel = listLevel;
-              const isTitle = articleClasses.title.some(className => elem.hasClass(className));
-              const isParagraph = articleClasses.paragraph.some(className => elem.hasClass(className));
-              const isList = articleClasses.list.some(className => elem.hasClass(className));
-              const isListItem = articleClasses.listItem.some(className => elem.hasClass(className));
-
-              const content = elem.text().trim();
-
-              if (isTitle) {
-                articleContents += `**${content}**\n\n`;
-              }
-
-              if (isParagraph) {
-                articleContents += `${content}\n\n`;
-              }
-
-              if (isList || isListItem) {
-                if (isListItem) {
-                  articleContents += `${' '.repeat(auxListLevel * 2)}- `;
-                  auxListLevel++;
-                }
-
-                elem.children().each((_, child) => {
-                  const childElement = $(child);
-                  getSectionContent(childElement, auxListLevel);
-                });
-              }
+            const articleClasses = {
+              title: [
+                'ags-rich-text-h1',
+                'ags-rich-text-h2',
+                'ags-rich-text-h3',
+                'ags-rich-text-h4',
+                'ags-rich-text-h5',
+                'ags-rich-text-h6',
+              ],
+              paragraph: ['ags-rich-text-p', 'ags-rich-text-blockquote'],
+              list: ['ags-rich-text-ul', 'ags-rich-text-ol'],
+              listItem: ['ags-rich-text-li'],
             };
 
-            getSectionContent(element);
+            $('article.ags-NewsArticlePage-contentWrapper-articlePane-article > div.ags-rich-text-div')
+              .children()
+              .each((_, el) => {
+                const element = $(el);
+
+                const getSectionContent = (elem: typeof element, listLevel = 1) => {
+                  let auxListLevel = listLevel;
+                  const isTitle = articleClasses.title.some(className => elem.hasClass(className));
+                  const isParagraph = articleClasses.paragraph.some(className => elem.hasClass(className));
+                  const isList = articleClasses.list.some(className => elem.hasClass(className));
+                  const isListItem = articleClasses.listItem.some(className => elem.hasClass(className));
+
+                  const content = elem.text().trim();
+
+                  if (isTitle) {
+                    articleContents += `**${content}**\n\n`;
+                  }
+
+                  if (isParagraph) {
+                    articleContents += `${content}\n\n`;
+                  }
+
+                  if (isList || isListItem) {
+                    if (isListItem) {
+                      articleContents += `${' '.repeat(auxListLevel * 2)}- `;
+                      auxListLevel++;
+                    }
+
+                    elem.children().each((_, child) => {
+                      const childElement = $(child);
+                      getSectionContent(childElement, auxListLevel);
+                    });
+                  }
+                };
+
+                getSectionContent(element);
+              });
+
+            cache.setCache(`get-news-details-${url}`, articleContents, 60 * 30); // 30 minutes
+
+            const response = await OpenAIService.query(`${prompt}\n\n${articleContents}`);
+
+            result = response.output_text;
+          }
+
+          await postAsyncMessage({
+            reason: `Lost Ark Global news details for ${url} (${language})`,
+            message: result,
           });
+        };
 
-        cache.setCache(`get-news-details-${url}`, articleContents, 60 * 30); // 30 minutes
-
-        const response = await OpenAIService.query(`${prompt}\n\n${articleContents}`);
+        promise().catch((error) => {
+          console.error(`Error fetching LOA news details`, {
+            error,
+            url,
+            language,
+          });
+        });
 
         return {
-          content: [{ type: 'text', text: response.output_text }],
+          content: [{ type: 'text', text: 'Fetching Lost Ark Global news details...' }],
         };
       } catch (error) {
         console.error(`Error fetching LOA news details`, error);
@@ -308,51 +336,57 @@ const setupTools = (server: McpServer) => {
           };
         }
 
-        url = url.replace(/(en-us)|(es-es)/gi, language);
+        const promise = async () => {
+          url = url.replace(/(en-us)|(es-es)/gi, language);
 
-        const cachedData = cache.getCache<string>(`get-global-release-details-${url}`);
+          const cachedData = cache.getCache<string>(`get-global-release-details-${url}`);
 
-        if (cachedData) {
-          console.log('get-global-release-details cache hit', { url });
+          let result = '';
+          if (cachedData) {
+            console.log('get-global-release-details cache hit', { url });
 
-          const response = await OpenAIService.query(`${prompt}\n\n${cachedData}`);
+            const response = await OpenAIService.query(`${prompt}\n\n${cachedData}`);
 
-          return {
-            content: [
-              {
-                type: 'text',
-                text: response.output_text,
-              },
-            ],
-          };
-        }
+            result = response.output_text;
+          } else {
+            const { data } = await lostarknewsAPI.get(url);
 
-        const { data } = await lostarknewsAPI.get(url);
+            const $ = cheerio.load(data);
 
-        const $ = cheerio.load(data);
+            const mainArticleContainer = $('.ags-ReleaseDetailsPage-articlePane');
 
-        const mainArticleContainer = $('.ags-ReleaseDetailsPage-articlePane');
+            mainArticleContainer.find('style').remove();
+            mainArticleContainer.find('img').remove();
+            mainArticleContainer.find('.ags-EditPreview-fileSize').remove();
+            mainArticleContainer.find('.u-hidden').remove();
 
-        mainArticleContainer.find('style').remove();
-        mainArticleContainer.find('img').remove();
-        mainArticleContainer.find('.ags-EditPreview-fileSize').remove();
-        mainArticleContainer.find('.u-hidden').remove();
+            const turndownService = new TurndownService();
 
-        const turndownService = new TurndownService();
+            const parsed = turndownService.turndown(mainArticleContainer.html()!);
 
-        const parsed = turndownService.turndown(mainArticleContainer.html()!);
+            cache.setCache(`get-global-release-details-${url}`, parsed, 60 * 30); // 30 minutes
 
-        cache.setCache(`get-global-release-details-${url}`, parsed, 60 * 30); // 30 minutes
+            const response = await OpenAIService.query(`${prompt}\n\n${parsed}`);
 
-        const response = await OpenAIService.query(`${prompt}\n\n${parsed}`);
+            result = response.output_text;
+          }
+
+          await postAsyncMessage({
+            reason: `Lost Ark Global release details for ${url} (${language})`,
+            message: result,
+          });
+        };
+
+        promise().catch((error) => {
+          console.error(`Error fetching LOA releases details`, {
+            error,
+            url,
+            language,
+          });
+        });
 
         return {
-          content: [
-            {
-              type: 'text',
-              text: response.output_text,
-            },
-          ],
+          content: [{ type: 'text', text: 'Fetching Lost Ark Global release details...' }],
         };
       } catch (error: unknown) {
         const err = error as Error;
@@ -530,34 +564,49 @@ const setupTools = (server: McpServer) => {
           };
         }
 
-        const cachedData = cache.getCache<string>(`get-kr-news-details-${url}`);
+        const promise = async () => {
+          const cachedData = cache.getCache<string>(`get-kr-news-details-${url}`);
 
-        if (cachedData) {
-          console.log('get-kr-news-details cache hit', { url });
+          let result = '';
+          if (cachedData) {
+            console.log('get-kr-news-details cache hit', { url });
 
-          const response = await OpenAIService.query(`${prompt}\n\n${cachedData}`);
+            const response = await OpenAIService.query(`${prompt}\n\n${cachedData}`);
 
-          return {
-            content: [{ type: 'text', text: response.output_text }],
-          };
-        }
+            result = response.output_text;
+          } else {
+            const { data } = await krLostArkAPI.get(url);
 
-        const { data } = await krLostArkAPI.get(url);
+            const $ = cheerio.load(data);
 
-        const $ = cheerio.load(data);
+            const mainArticleContainer = $('section.article__data > div');
 
-        const mainArticleContainer = $('section.article__data > div');
+            const turndownService = new TurndownService();
 
-        const turndownService = new TurndownService();
+            const parsed = turndownService.turndown(mainArticleContainer.html()!);
 
-        const parsed = turndownService.turndown(mainArticleContainer.html()!);
+            cache.setCache(`get-kr-news-details-${url}`, parsed, 60 * 30); // 30 minutes
 
-        cache.setCache(`get-kr-news-details-${url}`, parsed, 60 * 30); // 30 minutes
+            const response = await OpenAIService.query(`${prompt}\n\n${parsed}`);
 
-        const response = await OpenAIService.query(`${prompt}\n\n${parsed}`);
+            result = response.output_text;
+          }
+
+          await postAsyncMessage({
+            reason: `Lost Ark Korea news details for ${url} (Korean)`,
+            message: result,
+          });
+        };
+
+        promise().catch((error) => {
+          console.error(`Error fetching Korean LOA news details`, {
+            error,
+            url,
+          });
+        });
 
         return {
-          content: [{ type: 'text', text: response.output_text }],
+          content: [{ type: 'text', text: 'Fetching Korean LOA news details...' }],
         };
       } catch (error) {
         console.error(`Error fetching Korean LOA news details`, error);
