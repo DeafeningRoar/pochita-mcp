@@ -36,6 +36,8 @@ const postAsyncMessage = async (data: unknown) => {
     headers: {
       'x-api-key': process.env.AGENT_API_KEY,
     },
+  }).catch((err) => {
+    console.log('Error sending async message', err);
   });
 };
 
@@ -232,7 +234,12 @@ const setupTools = (server: McpServer) => {
           });
         };
 
-        promise().catch((error) => {
+        promise().catch(async (error) => {
+          await postAsyncMessage({
+            reason: `Lost Ark Global news details for ${url} (${language})`,
+            message: 'There was an error fetching LOA news details',
+          });
+
           console.error(`Error fetching LOA news details`, {
             error,
             url,
@@ -377,7 +384,12 @@ const setupTools = (server: McpServer) => {
           });
         };
 
-        promise().catch((error) => {
+        promise().catch(async (error) => {
+          await postAsyncMessage({
+            reason: `Lost Ark Global release details for ${url} (${language})`,
+            message: 'There was an error fetching LOA release details',
+          });
+
           console.error(`Error fetching LOA releases details`, {
             error,
             url,
@@ -598,7 +610,12 @@ const setupTools = (server: McpServer) => {
           });
         };
 
-        promise().catch((error) => {
+        promise().catch(async (error) => {
+          await postAsyncMessage({
+            reason: `Lost Ark Korea news details for ${url} (Korean)`,
+            message: 'There was an error fetching Korean LOA news details',
+          });
+
           console.error(`Error fetching Korean LOA news details`, {
             error,
             url,

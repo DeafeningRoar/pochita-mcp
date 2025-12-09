@@ -28,7 +28,9 @@ const postAsyncMessage = async (data: unknown) => {
         'x-api-key': process.env.AGENT_API_KEY,
       },
     },
-  );
+  ).catch((err) => {
+    console.log('Error sending async message', err);
+  });
 };
 
 const embedCitations = (response: string, citations?: string[]): string => {
@@ -90,7 +92,14 @@ Prefer one high-quality call over multiple unnecessary queries.`,
             targetId,
             userName,
           });
-        }).catch((error) => {
+        }).catch(async (error) => {
+          await postAsyncMessage({
+            message: 'Error fetching web search results',
+            reason: `Agent web search results for prompt: ${prompt}`,
+            targetId,
+            userName,
+          });
+
           console.error('Error searching the web for information', {
             prompt,
             targetId,
@@ -275,7 +284,14 @@ ${facts}`.trim();
               userName,
             });
           })
-          .catch((error) => {
+          .catch(async (error) => {
+            await postAsyncMessage({
+              message: 'Error generating image',
+              reason: 'Agent Image generation.',
+              targetId,
+              userName,
+            });
+
             console.error('Error generating image', {
               prompt,
               message: error.message,
