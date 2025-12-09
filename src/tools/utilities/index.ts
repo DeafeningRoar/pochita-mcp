@@ -19,6 +19,18 @@ const agentAPI = axios.create({
   baseURL: process.env.AGENT_API_URL,
 });
 
+const postAsyncMessage = async (data: unknown) => {
+  return agentAPI.post(
+    '/message',
+    data,
+    {
+      headers: {
+        'x-api-key': process.env.AGENT_API_KEY,
+      },
+    },
+  );
+};
+
 const embedCitations = (response: string, citations?: string[]): string => {
   try {
     if (!response || !citations?.length) return response;
@@ -54,23 +66,47 @@ Summarize and integrate the returned results naturally into your answer without 
 Prefer one high-quality call over multiple unnecessary queries.`,
       inputSchema: z.object({
         prompt: z.string().describe('The prompt the AI Agent will use to search the web for information.'),
+        targetId: z.string().describe('Discord recipient Id where the search results will be sent to.'),
+        userName: z.string().describe('The user name who requested the search.'),
       }).shape,
     },
-    async ({ prompt }) => {
+    async ({ prompt, targetId, userName }) => {
       try {
         console.log('Attempting to search the web for information', {
           prompt,
+          targetId,
+          userName,
         });
 
-        const response = await PerplexityService.query(prompt);
+        PerplexityService.query(prompt).then(async (response) => {
+          const { choices, citations } = response as PerplexityResponse;
+          const openAIResponse = choices[0].message.content as string;
 
-        const { choices, citations } = response as PerplexityResponse;
-        const openAIResponse = choices[0].message.content as string;
+          const formattedResponse = embedCitations(openAIResponse, citations);
 
-        const formattedResponse = embedCitations(openAIResponse, citations);
+          await postAsyncMessage({
+            message: formattedResponse,
+            reason: `Agent web search results for prompt: ${prompt}`,
+            targetId,
+            userName,
+          });
+        }).catch((error) => {
+          console.error('Error searching the web for information', {
+            prompt,
+            targetId,
+            userName,
+            message: error.message,
+            status: error.status,
+            data: error?.response?.data || error?.data || error,
+          });
+
+          return {
+            content: [{ type: 'text', text: 'Error searching the web for information' }],
+          };
+        });
 
         return {
-          content: [{ type: 'text', text: formattedResponse }],
+          content: [{ type: 'text', text: 'Searching the web for information...' }],
         };
       } catch (error) {
         console.error(`Error searching the web for information`, { prompt }, error);
@@ -225,27 +261,19 @@ ${facts}`.trim();
       try {
         const trimmedPrompt = prompt.length > 1024 ? prompt.slice(0, 1023) : prompt;
         GrokImageService.generate(trimmedPrompt)
-          .then((image) => {
+          .then(async (image) => {
             const imageUrl = image.data?.[0].url;
             const revisedPrompt = image.data?.[0].revised_prompt;
 
-            return agentAPI.post(
-              '/message',
-              {
-                message: `Image generated with initial prompt: ${trimmedPrompt}.\n\nAI Revised Prompt: ${revisedPrompt}`,
-                reason: 'Agent Image generation.',
-                attachments: {
-                  image: imageUrl,
-                },
-                targetId,
-                userName,
+            await postAsyncMessage({
+              message: `Image generated with initial prompt: ${trimmedPrompt}.\n\nAI Revised Prompt: ${revisedPrompt}`,
+              reason: 'Agent Image generation.',
+              attachments: {
+                image: imageUrl,
               },
-              {
-                headers: {
-                  'x-api-key': process.env.AGENT_API_KEY,
-                },
-              },
-            );
+              targetId,
+              userName,
+            });
           })
           .catch((error) => {
             console.error('Error generating image', {
