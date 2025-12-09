@@ -138,9 +138,11 @@ const setupTools = (server: McpServer) => {
           .describe(
             'Prompt given to the agent that will process the full article. The article itself will be included along the given prompt.',
           ),
+        targetId: z.string().describe('Discord recipient Id where the generated image will be sent to.'),
+        userName: z.string().describe('The user name who requested the image.'),
       }).shape,
     },
-    async ({ url, prompt, language }) => {
+    async ({ url, prompt, language, targetId, userName }) => {
       try {
         console.log('get-news-details', { url, language });
 
@@ -231,6 +233,8 @@ const setupTools = (server: McpServer) => {
           await postAsyncMessage({
             reason: `Lost Ark Global news details for ${url} (${language})`,
             message: result,
+            targetId,
+            userName,
           });
         };
 
@@ -238,6 +242,8 @@ const setupTools = (server: McpServer) => {
           await postAsyncMessage({
             reason: `Lost Ark Global news details for ${url} (${language})`,
             message: 'There was an error fetching LOA news details',
+            targetId,
+            userName,
           });
 
           console.error(`Error fetching LOA news details`, {
@@ -331,9 +337,11 @@ const setupTools = (server: McpServer) => {
         language: z
           .enum(['en-us', 'es-es'])
           .describe('The language of the article. en-us for English or es-es for Spanish'),
+        targetId: z.string().describe('Discord recipient Id where the generated image will be sent to.'),
+        userName: z.string().describe('The user name who requested the image.'),
       }).shape,
     },
-    async ({ url, prompt, language }) => {
+    async ({ url, prompt, language, targetId, userName }) => {
       try {
         console.log('get-global-release-details', { url, language });
 
@@ -381,6 +389,8 @@ const setupTools = (server: McpServer) => {
           await postAsyncMessage({
             reason: `Lost Ark Global release details for ${url} (${language})`,
             message: result,
+            targetId,
+            userName,
           });
         };
 
@@ -388,6 +398,8 @@ const setupTools = (server: McpServer) => {
           await postAsyncMessage({
             reason: `Lost Ark Global release details for ${url} (${language})`,
             message: 'There was an error fetching LOA release details',
+            targetId,
+            userName,
           });
 
           console.error(`Error fetching LOA releases details`, {
@@ -564,9 +576,11 @@ const setupTools = (server: McpServer) => {
           .describe(
             'Prompt given to the agent that will process the full article. The article itself will be included along the given prompt.',
           ),
+        targetId: z.string().describe('Discord recipient Id where the generated image will be sent to.'),
+        userName: z.string().describe('The user name who requested the image.'),
       }).shape,
     },
-    async ({ url, prompt }) => {
+    async ({ url, prompt, targetId, userName }) => {
       try {
         console.log('get-kr-news-details', { url });
 
@@ -607,6 +621,8 @@ const setupTools = (server: McpServer) => {
           await postAsyncMessage({
             reason: `Lost Ark Korea news details for ${url} (Korean)`,
             message: result,
+            targetId,
+            userName,
           });
         };
 
@@ -614,6 +630,8 @@ const setupTools = (server: McpServer) => {
           await postAsyncMessage({
             reason: `Lost Ark Korea news details for ${url} (Korean)`,
             message: 'There was an error fetching Korean LOA news details',
+            targetId,
+            userName,
           });
 
           console.error(`Error fetching Korean LOA news details`, {
