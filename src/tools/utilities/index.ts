@@ -5,7 +5,7 @@ import type { Database, Fact } from '../../services/database';
 import { z } from 'zod';
 import axios from 'axios';
 import PerplexityService from '../../services/perplexity';
-import GrokImageService from '../../services/grok-image';
+import GeminiImageService from '../../services/gemini';
 import { TablesEnum } from '../../services/database';
 import cache from '../../services/cache';
 
@@ -261,28 +261,33 @@ ${facts}`.trim();
       title: 'Generate an image based on a prompt.',
       description: `Generates an image using AI based on the given prompt and sends it through Discord to a specific recipient (an User or a Channel). Make sure to be very specific and detailed in the prompt. Only use this tool when the user asks for an image.`,
       inputSchema: z.object({
-        prompt: z.string().describe('The prompt to generate an image from. Maximum length of 1024 characters.').max(1024),
+        prompt: z.string().describe('The prompt to generate an image from.'),
         targetId: z.string().describe('Discord recipient Id where the generated image will be sent to.'),
         userName: z.string().describe('The user name who requested the image.'),
       }).shape,
     },
     async ({ prompt, targetId, userName }) => {
       try {
-        const trimmedPrompt = prompt.length > 1024 ? prompt.slice(0, 1023) : prompt;
-        GrokImageService.generate(trimmedPrompt)
-          .then(async (image) => {
-            const imageUrl = image.data?.[0].url;
-            const revisedPrompt = image.data?.[0].revised_prompt;
+        GeminiImageService.generate(prompt)
+          .then(async (response) => {
+            const candidate = response.candidates?.[0];
+            const part = candidate?.content?.parts?.[0];
+            const imageData = part?.inlineData?.data;
+            if (imageData) {
+              const buffer = Buffer.from(imageData, 'base64');
 
-            await postAsyncMessage({
-              message: `Image generated with initial prompt: ${trimmedPrompt}.\n\nAI Revised Prompt: ${revisedPrompt}`,
-              reason: 'Agent Image generation.',
-              attachments: {
-                image: imageUrl,
-              },
-              targetId,
-              userName,
-            });
+              await postAsyncMessage({
+                message: `Image generated with initial prompt: ${prompt}.`,
+                reason: 'Agent Image generation.',
+                attachments: {
+                  image: buffer,
+                },
+                targetId,
+                userName,
+              });
+            } else {
+              throw new Error('No image found in response');
+            }
           })
           .catch(async (error) => {
             await postAsyncMessage({
