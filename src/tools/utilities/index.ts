@@ -4,6 +4,7 @@ import type { Database, Fact } from '../../services/database';
 
 import { z } from 'zod';
 import axios from 'axios';
+import FormData from 'form-data';
 import PerplexityService from '../../services/perplexity';
 import GeminiImageService from '../../services/gemini';
 import { TablesEnum } from '../../services/database';
@@ -19,18 +20,34 @@ const agentAPI = axios.create({
   baseURL: process.env.AGENT_API_URL,
 });
 
+const tmpFilesAPI = axios.create({
+  baseURL: 'https://tmpfiles.org/api/v1',
+});
+
+const uploadTempImage = async (base64Image: string) => {
+  const form = new FormData();
+  const buffer = Buffer.from(base64Image, 'base64');
+  form.append('file', buffer, {
+    filename: 'generated_image.png',
+    contentType: 'image/png',
+    knownLength: buffer.length,
+  });
+
+  return tmpFilesAPI.post('/upload', form, {
+    headers: { ...form.getHeaders() },
+  });
+};
+
 const postAsyncMessage = async (data: unknown) => {
-  return agentAPI.post(
-    '/message',
-    data,
-    {
+  return agentAPI
+    .post('/message', data, {
       headers: {
         'x-api-key': process.env.AGENT_API_KEY,
       },
-    },
-  ).catch((err) => {
-    console.log('Error sending async message', err);
-  });
+    })
+    .catch((err) => {
+      console.log('Error sending async message', err);
+    });
 };
 
 const embedCitations = (response: string, citations?: string[]): string => {
@@ -80,39 +97,41 @@ Prefer one high-quality call over multiple unnecessary queries.`,
           userName,
         });
 
-        PerplexityService.query(prompt).then(async (response) => {
-          const { choices, citations } = response as PerplexityResponse;
-          const openAIResponse = choices[0].message.content as string;
+        PerplexityService.query(prompt)
+          .then(async (response) => {
+            const { choices, citations } = response as PerplexityResponse;
+            const openAIResponse = choices[0].message.content as string;
 
-          const formattedResponse = embedCitations(openAIResponse, citations);
+            const formattedResponse = embedCitations(openAIResponse, citations);
 
-          await postAsyncMessage({
-            message: formattedResponse,
-            reason: `Agent web search results for prompt: ${prompt}`,
-            targetId,
-            userName,
+            await postAsyncMessage({
+              message: formattedResponse,
+              reason: `Agent web search results for prompt: ${prompt}`,
+              targetId,
+              userName,
+            });
+          })
+          .catch(async (error) => {
+            await postAsyncMessage({
+              message: 'Error fetching web search results',
+              reason: `Agent web search results for prompt: ${prompt}`,
+              targetId,
+              userName,
+            });
+
+            console.error('Error searching the web for information', {
+              prompt,
+              targetId,
+              userName,
+              message: error.message,
+              status: error.status,
+              data: error?.response?.data || error?.data || error,
+            });
+
+            return {
+              content: [{ type: 'text', text: 'Error searching the web for information' }],
+            };
           });
-        }).catch(async (error) => {
-          await postAsyncMessage({
-            message: 'Error fetching web search results',
-            reason: `Agent web search results for prompt: ${prompt}`,
-            targetId,
-            userName,
-          });
-
-          console.error('Error searching the web for information', {
-            prompt,
-            targetId,
-            userName,
-            message: error.message,
-            status: error.status,
-            data: error?.response?.data || error?.data || error,
-          });
-
-          return {
-            content: [{ type: 'text', text: 'Error searching the web for information' }],
-          };
-        });
 
         return {
           content: [{ type: 'text', text: 'Searching the web for information...' }],
@@ -270,17 +289,22 @@ ${facts}`.trim();
       try {
         GeminiImageService.generate(prompt)
           .then(async (response) => {
-            const candidate = response.candidates?.[0];
-            const part = candidate?.content?.parts?.[0];
-            const imageData = part?.inlineData?.data;
+            let imageData;
+            response.candidates?.forEach((candidate) => {
+              if (candidate.content?.parts) {
+                candidate.content.parts.forEach((part) => {
+                  if (part.inlineData) imageData = part.inlineData.data;
+                });
+              }
+            });
             if (imageData) {
-              const buffer = Buffer.from(imageData, 'base64');
-
+              const result = await uploadTempImage(imageData);
+              const publicUrl = result.data.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
               await postAsyncMessage({
                 message: `Image generated with initial prompt: ${prompt}.`,
                 reason: 'Agent Image generation.',
                 attachments: {
-                  image: buffer,
+                  image: publicUrl,
                 },
                 targetId,
                 userName,
