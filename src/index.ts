@@ -24,7 +24,7 @@ app.use(express.json());
 const setupServer = () => {
   const server = new McpServer(
     {
-      name: 'Pochita MCP Server',
+      name: 'Pochita MCP',
       version: '1.0.0',
     },
     {
@@ -38,9 +38,9 @@ const setupServer = () => {
 
   const dbClient = new Supabase();
 
-  setupLOANewsTools(server);
-  reminders(server, dbClient);
-  utilities(server, dbClient);
+  setupLOANewsTools(server, {});
+  reminders(server, dbClient, {});
+  utilities(server, dbClient, { generateImage: true });
 
   return server;
 };
@@ -61,7 +61,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-app.post('/mcp', async (req, res) => {
+const handler = async (req: Request, res: Response) => {
   try {
     const server = setupServer();
     const transport = new StreamableHTTPServerTransport({
@@ -91,7 +91,10 @@ app.post('/mcp', async (req, res) => {
       });
     }
   }
-});
+};
+
+app.post('/mcp', handler);
+app.post('/', handler);
 
 app.use('/api', routes);
 

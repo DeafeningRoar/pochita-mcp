@@ -69,278 +69,286 @@ const embedCitations = (response: string, citations?: string[]): string => {
   return response;
 };
 
-const setupTools = (server: McpServer, dbClient: Database) => {
-  server.registerTool(
-    'web-search',
-    {
-      title: 'Real-Time Web Information Retrieval through an AI Agent',
-      description: `This tool will ask an AI Agent to search the web for information. Use this tool only when the user’s request requires up-to-date, specific, or niche information that may not be in your training data, or when you are uncertain about the answer.
+const setupTools = (server: McpServer, dbClient: Database, config: Record<string, boolean>) => {
+  if (config.webSearch) {
+    server.registerTool(
+      'web-search',
+      {
+        title: 'Real-Time Web Information Retrieval through an AI Agent',
+        description: `This tool will ask an AI Agent to search the web for information. Use this tool only when the user’s request requires up-to-date, specific, or niche information that may not be in your training data, or when you are uncertain about the answer.
 
-Do not fabricate or guess the results — always return the exact tool output.
+  Do not fabricate or guess the results — always return the exact tool output.
 
-Do not use this tool for common facts, definitions, or widely known historical data.
+  Do not use this tool for common facts, definitions, or widely known historical data.
 
-Summarize and integrate the returned results naturally into your answer without adding unsupported claims.
+  Summarize and integrate the returned results naturally into your answer without adding unsupported claims.
 
-Prefer one high-quality call over multiple unnecessary queries.`,
-      inputSchema: z.object({
-        prompt: z.string().describe('The prompt the AI Agent will use to search the web for information.'),
-        targetId: z.string().describe('Discord recipient Id where the search results will be sent to.'),
-        userName: z.string().describe('The user name who requested the search.'),
-      }).shape,
-    },
-    async ({ prompt, targetId, userName }) => {
-      try {
-        console.log('Attempting to search the web for information', {
-          prompt,
-          targetId,
-          userName,
-        });
-
-        PerplexityService.query(prompt)
-          .then(async (response) => {
-            const { choices, citations } = response as PerplexityResponse;
-            const openAIResponse = choices[0].message.content as string;
-
-            const formattedResponse = embedCitations(openAIResponse, citations);
-
-            await postAsyncMessage({
-              message: formattedResponse,
-              reason: `Agent web search results for prompt: ${prompt}`,
-              targetId,
-              userName,
-            });
-          })
-          .catch(async (error) => {
-            await postAsyncMessage({
-              message: 'Error fetching web search results',
-              reason: `Agent web search results for prompt: ${prompt}`,
-              targetId,
-              userName,
-            });
-
-            console.error('Error searching the web for information', {
-              prompt,
-              targetId,
-              userName,
-              message: error.message,
-              status: error.status,
-              data: error?.response?.data || error?.data || error,
-            });
-
-            return {
-              content: [{ type: 'text', text: 'Error searching the web for information' }],
-            };
+  Prefer one high-quality call over multiple unnecessary queries.`,
+        inputSchema: z.object({
+          prompt: z.string().describe('The prompt the AI Agent will use to search the web for information.'),
+          targetId: z.string().describe('Discord recipient Id where the search results will be sent to.'),
+          userName: z.string().describe('The user name who requested the search.'),
+        }).shape,
+      },
+      async ({ prompt, targetId, userName }) => {
+        try {
+          console.log('Attempting to search the web for information', {
+            prompt,
+            targetId,
+            userName,
           });
 
-        return {
-          content: [{ type: 'text', text: 'Searching the web for information...' }],
-        };
-      } catch (error) {
-        console.error(`Error searching the web for information`, { prompt }, error);
+          PerplexityService.query(prompt)
+            .then(async (response) => {
+              const { choices, citations } = response as PerplexityResponse;
+              const openAIResponse = choices[0].message.content as string;
 
-        return {
-          content: [{ type: 'text', text: 'Error searching the web for information' }],
-        };
-      }
-    },
-  );
+              const formattedResponse = embedCitations(openAIResponse, citations);
 
-  server.registerTool(
-    'get-facts',
-    {
-      title: 'Get current facts about an user or channel.',
-      description: 'Gets all the persisted facts about an user or channel.',
-      inputSchema: z.object({
-        targetId: z.string().describe('Id of the user or channel that the facts belong to.'),
-      }).shape,
-    },
-    async ({ targetId }) => {
-      try {
-        const cachedFacts = cache.getCache<string>(targetId);
+              await postAsyncMessage({
+                message: formattedResponse,
+                reason: `Agent web search results for prompt: ${prompt}`,
+                targetId,
+                userName,
+              });
+            })
+            .catch(async (error) => {
+              await postAsyncMessage({
+                message: 'Error fetching web search results',
+                reason: `Agent web search results for prompt: ${prompt}`,
+                targetId,
+                userName,
+              });
 
-        if (cachedFacts) {
-          console.log(`Facts cache hit with key ${targetId}`);
+              console.error('Error searching the web for information', {
+                prompt,
+                targetId,
+                userName,
+                message: error.message,
+                status: error.status,
+                data: error?.response?.data || error?.data || error,
+              });
+
+              return {
+                content: [{ type: 'text', text: 'Error searching the web for information' }],
+              };
+            });
 
           return {
-            content: [{ type: 'text', text: cachedFacts }],
+            content: [{ type: 'text', text: 'Searching the web for information...' }],
           };
-        }
+        } catch (error) {
+          console.error(`Error searching the web for information`, { prompt }, error);
 
-        const currentFacts = await dbClient.select<Fact>(TablesEnum.FACTS, {
-          filters: [{ field: 'target_id', operator: 'eq', value: targetId }],
-        });
-
-        if (!currentFacts?.length) {
           return {
-            content: [{ type: 'text', text: 'No facts found.' }],
+            content: [{ type: 'text', text: 'Error searching the web for information' }],
           };
         }
+      },
+    );
+  }
 
-        let facts = currentFacts
-          .reduce((acc, { id, fact }) => {
-            acc += `- [${id}] ${decrypt(fact)}\n`;
+  if (config.getFacts) {
+    server.registerTool(
+      'get-facts',
+      {
+        title: 'Get current facts about an user or channel.',
+        description: 'Gets all the persisted facts about an user or channel.',
+        inputSchema: z.object({
+          targetId: z.string().describe('Id of the user or channel that the facts belong to.'),
+        }).shape,
+      },
+      async ({ targetId }) => {
+        try {
+          const cachedFacts = cache.getCache<string>(targetId);
 
-            return acc;
-          }, '')
-          .trim();
+          if (cachedFacts) {
+            console.log(`Facts cache hit with key ${targetId}`);
 
-        const { name } = currentFacts[0];
+            return {
+              content: [{ type: 'text', text: cachedFacts }],
+            };
+          }
 
-        facts = `[FACTS OWNER]
-ID: ${targetId}
-Name: ${name ?? 'unknown'}
-
-[FACTS]
-${facts}`.trim();
-
-        cache.setCache(targetId, facts, 60 * 24);
-
-        return {
-          content: [{ type: 'text', text: facts }],
-        };
-      } catch (error: unknown) {
-        console.error('Error getting facts', { targetId }, error);
-
-        return {
-          content: [{ type: 'text', text: 'Error getting facts' }],
-        };
-      }
-    },
-  );
-
-  server.registerTool(
-    'update-facts',
-    {
-      title: 'Update user or channel facts.',
-      description:
-        'Add or remove persistent facts about an user or channel. When removing a fact, you must provide its id.',
-      inputSchema: z.object({
-        targetId: z.string().describe('Id of the user or channel the facts belong to.'),
-        name: z.string().describe('Name of the user or channel the facts belongs to.').optional(),
-        add: z.array(z.string()).describe('List of facts to be stored').optional(),
-        remove: z.array(z.string()).describe('Ids of the facts to be removed').optional(),
-      }).shape,
-    },
-    async ({ targetId, name, add, remove }) => {
-      try {
-        if (!add?.length && !remove?.length) {
-          return {
-            content: [{ type: 'text', text: 'No facts provided to update.' }],
-          };
-        }
-
-        if (remove?.length) {
           const currentFacts = await dbClient.select<Fact>(TablesEnum.FACTS, {
             filters: [{ field: 'target_id', operator: 'eq', value: targetId }],
           });
 
-          const factsToRemove = currentFacts.filter(fact => remove.map(r => `${r}`).includes(`${fact.id}`));
-
-          if (factsToRemove.length) {
-            const result = await dbClient.delete(TablesEnum.FACTS, [
-              { field: 'target_id', operator: 'eq', value: targetId },
-              { field: 'id', operator: 'in', value: `(${factsToRemove.map(f => f.id).join(',')})` },
-            ]);
-
-            console.log(`Removed (${factsToRemove.length}) facts: ${result}`);
+          if (!currentFacts?.length) {
+            return {
+              content: [{ type: 'text', text: 'No facts found.' }],
+            };
           }
+
+          let facts = currentFacts
+            .reduce((acc, { id, fact }) => {
+              acc += `- [${id}] ${decrypt(fact)}\n`;
+
+              return acc;
+            }, '')
+            .trim();
+
+          const { name } = currentFacts[0];
+
+          facts = `[FACTS OWNER]
+  ID: ${targetId}
+  Name: ${name ?? 'unknown'}
+
+  [FACTS]
+  ${facts}`.trim();
+
+          cache.setCache(targetId, facts, 60 * 24);
+
+          return {
+            content: [{ type: 'text', text: facts }],
+          };
+        } catch (error: unknown) {
+          console.error('Error getting facts', { targetId }, error);
+
+          return {
+            content: [{ type: 'text', text: 'Error getting facts' }],
+          };
         }
+      },
+    );
+  }
 
-        if (add?.length) {
-          await dbClient.insert(
-            TablesEnum.FACTS,
-            add.map(fact => ({
-              target_id: targetId,
-              name,
-              fact: encrypt(fact),
-            })),
-          );
-        }
+  if (config.updateFacts) {
+    server.registerTool(
+      'update-facts',
+      {
+        title: 'Update user or channel facts.',
+        description:
+          'Add or remove persistent facts about an user or channel. When removing a fact, you must provide its id.',
+        inputSchema: z.object({
+          targetId: z.string().describe('Id of the user or channel the facts belong to.'),
+          name: z.string().describe('Name of the user or channel the facts belongs to.').optional(),
+          add: z.array(z.string()).describe('List of facts to be stored').optional(),
+          remove: z.array(z.string()).describe('Ids of the facts to be removed').optional(),
+        }).shape,
+      },
+      async ({ targetId, name, add, remove }) => {
+        try {
+          if (!add?.length && !remove?.length) {
+            return {
+              content: [{ type: 'text', text: 'No facts provided to update.' }],
+            };
+          }
 
-        cache.deleteCache(targetId);
-        cache.deleteCache(`internal-facts:${targetId}`);
-
-        return {
-          content: [{ type: 'text', text: 'Facts updated' }],
-        };
-      } catch (error: unknown) {
-        console.error('Error updating facts', { targetId, add, remove }, error);
-
-        return {
-          content: [{ type: 'text', text: 'Error updating facts' }],
-        };
-      }
-    },
-  );
-
-  server.registerTool(
-    'generate-image',
-    {
-      title: 'Generate an image based on a prompt.',
-      description: `Generates an image using AI based on the given prompt and sends it through Discord to a specific recipient (an User or a Channel). Make sure to be very specific and detailed in the prompt. Only use this tool when the user asks for an image.`,
-      inputSchema: z.object({
-        prompt: z.string().describe('The prompt to generate an image from.'),
-        targetId: z.string().describe('Discord recipient Id where the generated image will be sent to.'),
-        userName: z.string().describe('The user name who requested the image.'),
-      }).shape,
-    },
-    async ({ prompt, targetId, userName }) => {
-      try {
-        GeminiImageService.generate(prompt)
-          .then(async (response) => {
-            let imageData;
-            response.candidates?.forEach((candidate) => {
-              if (candidate.content?.parts) {
-                candidate.content.parts.forEach((part) => {
-                  if (part.inlineData) imageData = part.inlineData.data;
-                });
-              }
+          if (remove?.length) {
+            const currentFacts = await dbClient.select<Fact>(TablesEnum.FACTS, {
+              filters: [{ field: 'target_id', operator: 'eq', value: targetId }],
             });
-            if (imageData) {
-              const result = await uploadTempImage(imageData);
-              const publicUrl = result.data.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+
+            const factsToRemove = currentFacts.filter(fact => remove.map(r => `${r}`).includes(`${fact.id}`));
+
+            if (factsToRemove.length) {
+              const result = await dbClient.delete(TablesEnum.FACTS, [
+                { field: 'target_id', operator: 'eq', value: targetId },
+                { field: 'id', operator: 'in', value: `(${factsToRemove.map(f => f.id).join(',')})` },
+              ]);
+
+              console.log(`Removed (${factsToRemove.length}) facts: ${result}`);
+            }
+          }
+
+          if (add?.length) {
+            await dbClient.insert(
+              TablesEnum.FACTS,
+              add.map(fact => ({
+                target_id: targetId,
+                name,
+                fact: encrypt(fact),
+              })),
+            );
+          }
+
+          cache.deleteCache(targetId);
+          cache.deleteCache(`internal-facts:${targetId}`);
+
+          return {
+            content: [{ type: 'text', text: 'Facts updated' }],
+          };
+        } catch (error: unknown) {
+          console.error('Error updating facts', { targetId, add, remove }, error);
+
+          return {
+            content: [{ type: 'text', text: 'Error updating facts' }],
+          };
+        }
+      },
+    );
+  }
+
+  if (config.generateImage) {
+    server.registerTool(
+      'generate-image',
+      {
+        title: 'Generate an image based on a prompt.',
+        description: `Generates an image using AI based on the given prompt and sends it through Discord to a specific recipient (an User or a Channel). Make sure to be very specific and detailed in the prompt. Only use this tool when the user asks for an image.`,
+        inputSchema: z.object({
+          prompt: z.string().describe('The prompt to generate an image from.'),
+          targetId: z.string().describe('Discord recipient Id where the generated image will be sent to.'),
+          userName: z.string().describe('The user name who requested the image.'),
+        }).shape,
+      },
+      async ({ prompt, targetId, userName }) => {
+        try {
+          GeminiImageService.generate(prompt)
+            .then(async (response) => {
+              let imageData;
+              response.candidates?.forEach((candidate) => {
+                if (candidate.content?.parts) {
+                  candidate.content.parts.forEach((part) => {
+                    if (part.inlineData) imageData = part.inlineData.data;
+                  });
+                }
+              });
+              if (imageData) {
+                const result = await uploadTempImage(imageData);
+                const publicUrl = result.data.data.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+                await postAsyncMessage({
+                  message: `Image generated with initial prompt: ${prompt}.`,
+                  reason: 'Agent Image generation.',
+                  attachments: {
+                    image: publicUrl,
+                  },
+                  targetId,
+                  userName,
+                });
+              } else {
+                throw new Error('No image found in response');
+              }
+            })
+            .catch(async (error) => {
               await postAsyncMessage({
-                message: `Image generated with initial prompt: ${prompt}.`,
+                message: 'Error generating image',
                 reason: 'Agent Image generation.',
-                attachments: {
-                  image: publicUrl,
-                },
                 targetId,
                 userName,
               });
-            } else {
-              throw new Error('No image found in response');
-            }
-          })
-          .catch(async (error) => {
-            await postAsyncMessage({
-              message: 'Error generating image',
-              reason: 'Agent Image generation.',
-              targetId,
-              userName,
+
+              console.error('Error generating image', {
+                prompt,
+                message: error.message,
+                status: error.status,
+                data: error?.response?.data || error?.data,
+              });
             });
 
-            console.error('Error generating image', {
-              prompt,
-              message: error.message,
-              status: error.status,
-              data: error?.response?.data || error?.data,
-            });
-          });
+          return {
+            content: [{ type: 'text', text: 'Image is being generated...' }],
+          };
+        } catch (error: unknown) {
+          console.error('Error generating image', { prompt }, error);
 
-        return {
-          content: [{ type: 'text', text: 'Image is being generated...' }],
-        };
-      } catch (error: unknown) {
-        console.error('Error generating image', { prompt }, error);
-
-        return {
-          content: [{ type: 'text', text: 'Error generating image' }],
-        };
-      }
-    },
-  );
+          return {
+            content: [{ type: 'text', text: 'Error generating image' }],
+          };
+        }
+      },
+    );
+  }
 };
 
 export default setupTools;
