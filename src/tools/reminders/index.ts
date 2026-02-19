@@ -2,13 +2,13 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { Database, Reminder } from '../../services/database';
 
 import { z } from 'zod';
-import axios from 'axios';
+// import axios from 'axios';
 
-import { Supabase, TablesEnum } from '../../services/database';
+import { TablesEnum } from '../../services/database';
 
-const agentAPI = axios.create({
-  baseURL: process.env.AGENT_API_URL,
-});
+// const agentAPI = axios.create({
+//   baseURL: process.env.AGENT_API_URL,
+// });
 
 const setupTools = (server: McpServer, dbClient: Database, config: Record<string, boolean>) => {
   if (config.setDiscordReminder) {
@@ -202,59 +202,59 @@ const setupTools = (server: McpServer, dbClient: Database, config: Record<string
   }
 };
 
-const pollReminders = async () => {
-  const dbClient = new Supabase();
-  const filters = [
-    {
-      field: 'due_date',
-      operator: 'lte',
-      value: new Date().toUTCString(),
-    },
-  ];
+// const pollReminders = async () => {
+//   const dbClient = new Supabase();
+//   const filters = [
+//     {
+//       field: 'due_date',
+//       operator: 'lte',
+//       value: new Date().toUTCString(),
+//     },
+//   ];
 
-  const reminders = await dbClient.select<Reminder>(TablesEnum.REMINDERS, { filters });
+//   const reminders = await dbClient.select<Reminder>(TablesEnum.REMINDERS, { filters });
 
-  if (!reminders.length) {
-    return;
-  }
+//   if (!reminders.length) {
+//     return;
+//   }
 
-  await agentAPI.post(
-    '/reminders',
-    reminders.map(reminder => ({
-      targetId: reminder.target_id,
-      userName: reminder.name,
-      description: reminder.description,
-      prompt: reminder.context_prompt,
-    })),
-    {
-      headers: {
-        'x-api-key': process.env.AGENT_API_KEY,
-      },
-    },
-  );
+//   await agentAPI.post(
+//     '/reminders',
+//     reminders.map(reminder => ({
+//       targetId: reminder.target_id,
+//       userName: reminder.name,
+//       description: reminder.description,
+//       prompt: reminder.context_prompt,
+//     })),
+//     {
+//       headers: {
+//         'x-api-key': process.env.AGENT_API_KEY,
+//       },
+//     },
+//   );
 
-  await dbClient.delete(TablesEnum.REMINDERS, filters);
+//   await dbClient.delete(TablesEnum.REMINDERS, filters);
 
-  console.log(`Successfully triggered ${reminders.length} reminders`);
-};
+//   console.log(`Successfully triggered ${reminders.length} reminders`);
+// };
 
-const now = new Date();
-const seconds = now.getUTCSeconds();
-const milliseconds = now.getUTCMilliseconds();
+// const now = new Date();
+// const seconds = now.getUTCSeconds();
+// const milliseconds = now.getUTCMilliseconds();
 
-let delay;
-if (seconds < 3) {
-  delay = (3 - seconds) * 1000 - milliseconds;
-} else {
-  delay = (60 - seconds + 3) * 1000 - milliseconds;
-}
+// let delay;
+// if (seconds < 3) {
+//   delay = (3 - seconds) * 1000 - milliseconds;
+// } else {
+//   delay = (60 - seconds + 3) * 1000 - milliseconds;
+// }
 
-setTimeout(() => {
-  pollReminders();
+// setTimeout(() => {
+//   pollReminders();
 
-  setInterval(() => {
-    pollReminders().catch(e => console.log('Error polling reminders', e));
-  }, Number(process.env.REMINDERS_POLLING_INTERVAL));
-}, delay);
+//   setInterval(() => {
+//     pollReminders().catch(e => console.log('Error polling reminders', e));
+//   }, Number(process.env.REMINDERS_POLLING_INTERVAL));
+// }, delay);
 
 export default setupTools;
