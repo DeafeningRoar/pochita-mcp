@@ -9,12 +9,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import express from 'express';
 
-import { Supabase } from './services/database';
-
-import setupLOANewsTools from './tools/loa-news';
-import reminders from './tools/reminders';
 import utilities from './tools/utilities';
-import routes from './routes';
 
 const PORT = process.env.PORT || 3000;
 
@@ -36,11 +31,7 @@ const setupServer = () => {
     },
   );
 
-  const dbClient = new Supabase();
-
-  setupLOANewsTools(server, {});
-  reminders(server, dbClient, {});
-  utilities(server, dbClient, { generateImage: true });
+  utilities(server, { generateImage: true });
 
   return server;
 };
@@ -95,8 +86,6 @@ const handler = async (req: Request, res: Response) => {
 
 app.post('/mcp', handler);
 app.post('/', handler);
-
-app.use('/api', routes);
 
 app.listen(PORT, () => {
   console.log('Server is running on port', PORT);
